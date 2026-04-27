@@ -1,0 +1,547 @@
+@import "tailwindcss";
+
+:root {
+  --win-gray: #c0c0c0;
+  --win-gray-light: #dfdfdf;
+  --win-gray-dark: #808080;
+  --win-gray-darker: #404040;
+  --win-white: #ffffff;
+  --win-black: #000000;
+  --win-navy: #000080;
+  --win-teal: #008080;
+  --win-red: #800000;
+  --win-felt: #007020;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  font-family: "Microsoft Sans Serif", "MS Sans Serif", Tahoma, Geneva, sans-serif;
+  font-size: 12px;
+  color: #000;
+  background: var(--win-teal);
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+}
+
+/* === Beveled panels (Win95 style) === */
+.bevel-out {
+  border-top: 2px solid var(--win-white);
+  border-left: 2px solid var(--win-white);
+  border-right: 2px solid var(--win-gray-darker);
+  border-bottom: 2px solid var(--win-gray-darker);
+  background: var(--win-gray);
+}
+
+.bevel-out-thin {
+  border-top: 1px solid var(--win-white);
+  border-left: 1px solid var(--win-white);
+  border-right: 1px solid var(--win-gray-darker);
+  border-bottom: 1px solid var(--win-gray-darker);
+  background: var(--win-gray);
+}
+
+.bevel-in {
+  border-top: 2px solid var(--win-gray-darker);
+  border-left: 2px solid var(--win-gray-darker);
+  border-right: 2px solid var(--win-white);
+  border-bottom: 2px solid var(--win-white);
+  background: var(--win-white);
+}
+
+.bevel-in-thin {
+  border-top: 1px solid var(--win-gray-darker);
+  border-left: 1px solid var(--win-gray-darker);
+  border-right: 1px solid var(--win-white);
+  border-bottom: 1px solid var(--win-white);
+  background: var(--win-gray);
+}
+
+/* === Window === */
+.window {
+  background: var(--win-gray);
+  border-top: 2px solid var(--win-white);
+  border-left: 2px solid var(--win-white);
+  border-right: 2px solid var(--win-gray-darker);
+  border-bottom: 2px solid var(--win-gray-darker);
+  padding: 2px;
+  display: flex;
+  flex-direction: column;
+}
+
+.title-bar {
+  background: var(--win-navy);
+  color: var(--win-white);
+  padding: 3px 6px;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+}
+
+.title-bar-buttons {
+  display: flex;
+  gap: 2px;
+}
+
+.title-bar-button {
+  width: 18px;
+  height: 16px;
+  background: var(--win-gray);
+  border-top: 1px solid var(--win-white);
+  border-left: 1px solid var(--win-white);
+  border-right: 1px solid var(--win-gray-darker);
+  border-bottom: 1px solid var(--win-gray-darker);
+  color: var(--win-black);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.title-bar-button:active {
+  border-top: 1px solid var(--win-gray-darker);
+  border-left: 1px solid var(--win-gray-darker);
+  border-right: 1px solid var(--win-white);
+  border-bottom: 1px solid var(--win-white);
+}
+
+.window-body {
+  padding: 8px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* === Buttons === */
+.btn {
+  background: var(--win-gray);
+  border-top: 2px solid var(--win-white);
+  border-left: 2px solid var(--win-white);
+  border-right: 2px solid var(--win-gray-darker);
+  border-bottom: 2px solid var(--win-gray-darker);
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--win-black);
+  padding: 4px 12px;
+  cursor: pointer;
+  min-width: 75px;
+  outline: none;
+}
+
+.btn:focus {
+  outline: 1px dotted #000;
+  outline-offset: -4px;
+}
+
+.btn:active:not(:disabled) {
+  border-top: 2px solid var(--win-gray-darker);
+  border-left: 2px solid var(--win-gray-darker);
+  border-right: 2px solid var(--win-white);
+  border-bottom: 2px solid var(--win-white);
+  padding: 5px 11px 3px 13px;
+}
+
+.btn:disabled {
+  color: var(--win-gray-dark);
+  text-shadow: 1px 1px 0 var(--win-white);
+  cursor: not-allowed;
+}
+
+.btn-big {
+  font-size: 14px;
+  padding: 8px 24px;
+  min-width: 220px;
+}
+
+.btn-big:active:not(:disabled) {
+  padding: 9px 23px 7px 25px;
+}
+
+/* === Inputs === */
+.input, .select {
+  font-family: inherit;
+  font-size: 12px;
+  background: var(--win-white);
+  border-top: 2px solid var(--win-gray-darker);
+  border-left: 2px solid var(--win-gray-darker);
+  border-right: 2px solid var(--win-white);
+  border-bottom: 2px solid var(--win-white);
+  padding: 3px 4px;
+  outline: none;
+  color: var(--win-black);
+}
+
+.select {
+  padding: 2px 4px;
+}
+
+/* === Layouts === */
+.app-root {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  min-height: 100vh;
+  background: var(--win-teal);
+}
+
+.menu-window {
+  width: 480px;
+  max-width: 100%;
+}
+
+.setup-window {
+  width: 560px;
+  max-width: 100%;
+}
+
+.online-window {
+  width: 420px;
+  max-width: 100%;
+}
+
+.title-text {
+  font-family: "Times New Roman", Times, serif;
+  font-size: 64px;
+  font-weight: bold;
+  text-align: center;
+  letter-spacing: 8px;
+  color: var(--win-navy);
+  text-shadow: 2px 2px 0 var(--win-gray-dark);
+  padding: 24px 0 8px;
+  margin: 0;
+}
+
+.subtitle {
+  text-align: center;
+  font-size: 12px;
+  color: var(--win-black);
+  padding-bottom: 20px;
+}
+
+.menu-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0 24px;
+}
+
+.corner-label {
+  position: fixed;
+  bottom: 6px;
+  font-size: 11px;
+  color: var(--win-white);
+  background: var(--win-navy);
+  padding: 2px 6px;
+  border: 1px solid var(--win-black);
+  user-select: none;
+}
+
+.corner-label.left { left: 6px; }
+.corner-label.right { right: 6px; }
+
+/* === Form === */
+.form-row {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.form-row label {
+  text-align: right;
+}
+
+.fieldset {
+  border: 1px solid var(--win-gray-dark);
+  padding: 8px 12px 12px;
+  margin: 8px 0;
+  position: relative;
+}
+
+.fieldset > legend {
+  padding: 0 4px;
+  font-weight: bold;
+}
+
+.button-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 8px;
+}
+
+/* === Game table === */
+.game-window {
+  width: min(960px, 100%);
+  height: min(720px, 100%);
+}
+
+.felt {
+  background: var(--win-felt);
+  border-top: 2px solid var(--win-gray-darker);
+  border-left: 2px solid var(--win-gray-darker);
+  border-right: 2px solid var(--win-white);
+  border-bottom: 2px solid var(--win-white);
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  color: var(--win-white);
+  overflow: hidden;
+}
+
+.players-row {
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.player-card {
+  background: var(--win-gray);
+  color: var(--win-black);
+  border-top: 2px solid var(--win-white);
+  border-left: 2px solid var(--win-white);
+  border-right: 2px solid var(--win-gray-darker);
+  border-bottom: 2px solid var(--win-gray-darker);
+  padding: 6px 8px;
+  min-width: 140px;
+  text-align: center;
+}
+
+.player-card.active {
+  outline: 2px solid yellow;
+  outline-offset: 2px;
+}
+
+.player-card.folded {
+  opacity: 0.55;
+}
+
+.player-name {
+  font-weight: bold;
+  margin-bottom: 2px;
+}
+
+.player-stats {
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.player-action-tag {
+  display: inline-block;
+  background: var(--win-navy);
+  color: var(--win-white);
+  font-size: 10px;
+  padding: 1px 6px;
+  margin-top: 2px;
+}
+
+.player-action-tag.fold { background: var(--win-red); }
+.player-action-tag.allin { background: #b06000; }
+
+.community-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.pot-display {
+  background: var(--win-gray);
+  color: var(--win-black);
+  padding: 4px 12px;
+  border-top: 2px solid var(--win-white);
+  border-left: 2px solid var(--win-white);
+  border-right: 2px solid var(--win-gray-darker);
+  border-bottom: 2px solid var(--win-gray-darker);
+  font-weight: bold;
+}
+
+.cards-row {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.card {
+  width: 52px;
+  height: 72px;
+  background: var(--win-white);
+  border: 1px solid var(--win-black);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px;
+  font-family: "Times New Roman", Times, serif;
+  font-weight: bold;
+  font-size: 14px;
+  color: var(--win-black);
+  user-select: none;
+}
+
+.card.small {
+  width: 38px;
+  height: 54px;
+  font-size: 12px;
+  padding: 2px;
+}
+
+.card.red { color: #c00; }
+
+.card.back {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--win-navy),
+    var(--win-navy) 4px,
+    #4040a0 4px,
+    #4040a0 8px
+  );
+  color: transparent;
+}
+
+.card-rank-top, .card-rank-bottom {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+}
+
+.card-rank-bottom {
+  transform: rotate(180deg);
+}
+
+.card-suit-mid {
+  font-size: 22px;
+}
+
+.card.small .card-suit-mid {
+  font-size: 16px;
+}
+
+.controls-bar {
+  background: var(--win-gray);
+  color: var(--win-black);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 2px solid var(--win-white);
+  border-left: 2px solid var(--win-white);
+  border-right: 2px solid var(--win-gray-darker);
+  border-bottom: 2px solid var(--win-gray-darker);
+}
+
+.control-buttons {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.log-area {
+  background: var(--win-white);
+  color: var(--win-black);
+  border-top: 2px solid var(--win-gray-darker);
+  border-left: 2px solid var(--win-gray-darker);
+  border-right: 2px solid var(--win-white);
+  border-bottom: 2px solid var(--win-white);
+  height: 84px;
+  overflow-y: auto;
+  padding: 4px 6px;
+  font-size: 11px;
+  font-family: "Lucida Console", "Courier New", monospace;
+}
+
+.log-line {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.draw-cards-area {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin: 4px 0;
+}
+
+.draw-card-toggle {
+  cursor: pointer;
+  position: relative;
+}
+
+.draw-card-toggle.discard::after {
+  content: "DISCARD";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-15deg);
+  background: var(--win-red);
+  color: var(--win-white);
+  font-family: "Microsoft Sans Serif", sans-serif;
+  font-size: 9px;
+  padding: 2px 4px;
+  border: 1px solid #000;
+}
+
+.scrollable {
+  overflow: auto;
+}
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.dialog {
+  width: 360px;
+  max-width: 90vw;
+}
+
+.dialog-body {
+  padding: 16px;
+}
+
+.muted { color: var(--win-gray-darker); }
+
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.range-row input[type="range"] {
+  flex: 1;
+}

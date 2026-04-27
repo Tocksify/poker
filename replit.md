@@ -4,6 +4,10 @@
 
 pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
 
+## Artifacts
+
+- **poker** — A poker game (Texas Hold'em + Five Card Draw) with Win9x-styled UI, single-player vs bots. Frontend-only (no backend).
+
 ## Stack
 
 - **Monorepo tool**: pnpm workspaces
