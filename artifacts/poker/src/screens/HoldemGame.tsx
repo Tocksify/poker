@@ -301,14 +301,14 @@ export function HoldemGame({ setup, fastBots, showHints, onExit }: Props) {
 
       {showQuit && (
         <div className="dialog-overlay">
-          <div className="window dialog">
-            <div className="title-bar">
-              <div>Quit Game?</div>
+          <div className="dialog">
+            <div className="panel-header">
+              <div className="panel-title">Quit Game?</div>
             </div>
             <div className="dialog-body">
               <p>Are you sure you want to quit this game?</p>
               <div className="button-row">
-                <button className="btn" onClick={() => onExit("menu")}>
+                <button className="btn btn-danger" onClick={() => onExit("menu")}>
                   Yes
                 </button>
                 <button className="btn" onClick={() => setShowQuit(false)}>

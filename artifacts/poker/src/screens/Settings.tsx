@@ -16,6 +16,7 @@ interface Props {
 
 export function SettingsScreen({ onNavigate, settings, onSave }: Props) {
   const [local, setLocal] = useState<Settings>(settings);
+  const trimmedName = local.playerName.trim();
 
   return (
     <Window
@@ -33,17 +34,21 @@ export function SettingsScreen({ onNavigate, settings, onSave }: Props) {
             type="text"
             value={local.playerName}
             maxLength={24}
+            placeholder="Enter your name"
             onChange={(e) =>
               setLocal({ ...local, playerName: e.target.value })
             }
           />
+        </div>
+        <div style={{ marginTop: 4, paddingLeft: 170, fontSize: 11 }} className="dim">
+          Required to play Online.
         </div>
       </fieldset>
 
       <fieldset className="fieldset">
         <legend>Gameplay</legend>
         <div className="form-row">
-          <label htmlFor="show-hints">Show Hand Hints:</label>
+          <label htmlFor="show-hints">Hand Hints:</label>
           <div>
             <input
               id="show-hints"
@@ -53,7 +58,7 @@ export function SettingsScreen({ onNavigate, settings, onSave }: Props) {
                 setLocal({ ...local, showCardHints: e.target.checked })
               }
             />
-            <span style={{ marginLeft: 6 }}>
+            <span style={{ marginLeft: 8 }}>
               Show your current best hand at the table
             </span>
           </div>
@@ -69,8 +74,8 @@ export function SettingsScreen({ onNavigate, settings, onSave }: Props) {
                 setLocal({ ...local, fastBots: e.target.checked })
               }
             />
-            <span style={{ marginLeft: 6 }}>
-              Bots act with no thinking delay
+            <span style={{ marginLeft: 8 }}>
+              Bots act with no thinking delay (single player)
             </span>
           </div>
         </div>
@@ -78,13 +83,13 @@ export function SettingsScreen({ onNavigate, settings, onSave }: Props) {
 
       <div className="button-row">
         <button
-          className="btn"
+          className="btn btn-primary"
           onClick={() => {
-            onSave(local);
+            onSave({ ...local, playerName: trimmedName });
             onNavigate("menu");
           }}
         >
-          OK
+          Save
         </button>
         <button className="btn" onClick={() => onNavigate("menu")}>
           Cancel

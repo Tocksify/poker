@@ -9,18 +9,16 @@ interface Props {
 
 export function Window({ title, onClose, className = "", children }: Props) {
   return (
-    <div className={`window ${className}`}>
-      <div className="title-bar">
-        <div>{title}</div>
-        <div className="title-bar-buttons">
-          {onClose && (
-            <button className="title-bar-button" onClick={onClose} aria-label="Close">
-              X
-            </button>
-          )}
-        </div>
+    <div className={`panel ${className}`}>
+      <div className="panel-header">
+        <div className="panel-title">{title}</div>
+        {onClose && (
+          <button className="panel-close" onClick={onClose} aria-label="Close">
+            Back
+          </button>
+        )}
       </div>
-      <div className="window-body">{children}</div>
+      {children}
     </div>
   );
 }

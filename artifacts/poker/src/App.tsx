@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { MainMenu } from "@/screens/MainMenu";
 import { SingleSetup } from "@/screens/SingleSetup";
-import { Online } from "@/screens/Online";
+import { OnlineHome } from "@/screens/OnlineHome";
+import { CreateRoom } from "@/screens/CreateRoom";
+import { JoinRoom } from "@/screens/JoinRoom";
+import { OnlineLobby } from "@/screens/OnlineLobby";
+import { OnlineGame } from "@/screens/OnlineGame";
 import { SettingsScreen } from "@/screens/Settings";
 import { HoldemGame } from "@/screens/HoldemGame";
 import { DrawGame } from "@/screens/DrawGame";
@@ -10,6 +14,10 @@ export type Screen =
   | "menu"
   | "setup"
   | "online"
+  | "online-create"
+  | "online-join"
+  | "online-lobby"
+  | "online-game"
   | "settings"
   | "game-holdem"
   | "game-draw";
@@ -31,6 +39,12 @@ interface Settings {
 
 const STORAGE_KEY = "poker-settings-v1";
 
+const defaultSettings: Settings = {
+  playerName: "",
+  showCardHints: true,
+  fastBots: false,
+};
+
 function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -38,12 +52,6 @@ function loadSettings(): Settings {
   } catch {}
   return defaultSettings;
 }
-
-const defaultSettings: Settings = {
-  playerName: "Player",
-  showCardHints: true,
-  fastBots: false,
-};
 
 function App() {
   const [screen, setScreen] = useState<Screen>("menu");
@@ -64,15 +72,28 @@ function App() {
 
   return (
     <div className="app-root">
-      {screen === "menu" && <MainMenu onNavigate={setScreen} />}
+      {screen === "menu" && (
+        <MainMenu onNavigate={setScreen} playerName={settings.playerName} />
+      )}
       {screen === "setup" && (
         <SingleSetup
           onNavigate={setScreen}
-          playerName={settings.playerName}
+          playerName={settings.playerName || "Player"}
           onStart={handleStart}
         />
       )}
-      {screen === "online" && <Online onNavigate={setScreen} />}
+      {screen === "online" && <OnlineHome onNavigate={setScreen} />}
+      {screen === "online-create" && (
+        <CreateRoom
+          onNavigate={setScreen}
+          playerName={settings.playerName}
+        />
+      )}
+      {screen === "online-join" && (
+        <JoinRoom onNavigate={setScreen} playerName={settings.playerName} />
+      )}
+      {screen === "online-lobby" && <OnlineLobby onNavigate={setScreen} />}
+      {screen === "online-game" && <OnlineGame onNavigate={setScreen} />}
       {screen === "settings" && (
         <SettingsScreen
           onNavigate={setScreen}
