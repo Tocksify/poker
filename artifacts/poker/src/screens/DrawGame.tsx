@@ -15,6 +15,7 @@ import {
   startDrawHand,
 } from "@/lib/draw";
 import { bestHandFromN, handCategoryName } from "@/lib/cards";
+import { depositToBank } from "@/lib/bank";
 
 interface Props {
   setup: GameSetup;
@@ -22,6 +23,8 @@ interface Props {
   showHints: boolean;
   onExit: (s: Screen) => void;
 }
+
+const DEPOSIT_WINDOW_MS = 10_000;
 
 export function DrawGame({ setup, fastBots, showHints, onExit }: Props) {
   const initial = useMemo<DrawConfig>(
@@ -39,17 +42,21 @@ export function DrawGame({ setup, fastBots, showHints, onExit }: Props) {
   const [raiseAmount, setRaiseAmount] = useState(0);
   const [discardSet, setDiscardSet] = useState<Set<number>>(new Set());
   const [showQuit, setShowQuit] = useState(false);
+  const [depositDeadline, setDepositDeadline] = useState<number | null>(null);
+  const [depositResolved, setDepositResolved] = useState(false);
+  const [depositInput, setDepositInput] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
   const tickRef = useRef(0);
 
   const human = state.players.find((p) => p.isHuman)!;
   const turnPlayer = state.players[state.toActIdx];
+  const handIsOver = isHandOverDraw(state);
   const isHumanTurn =
-    turnPlayer?.isHuman &&
-    turnPlayer.status === "active" &&
-    !isHandOverDraw(state);
+    turnPlayer?.isHuman && turnPlayer.status === "active" && !handIsOver;
+  const isGameOver = gameOverDraw(state);
 
   useEffect(() => {
-    if (isHandOverDraw(state)) return;
+    if (handIsOver) return;
     if (turnPlayer?.isHuman) return;
     if (turnPlayer?.status !== "active") return;
     const delay = fastBots ? 200 : 700 + Math.floor(Math.random() * 600);
@@ -61,7 +68,7 @@ export function DrawGame({ setup, fastBots, showHints, onExit }: Props) {
       setState({ ...next });
     }, delay);
     return () => window.clearTimeout(id);
-  }, [state, fastBots, turnPlayer]);
+  }, [state, fastBots, turnPlayer, handIsOver]);
 
   useEffect(() => {
     if (isHumanTurn && state.stage !== "drawing") {
@@ -73,6 +80,19 @@ export function DrawGame({ setup, fastBots, showHints, onExit }: Props) {
     }
   }, [isHumanTurn, state.toActIdx, state.stage]);
 
+  useEffect(() => {
+    if (handIsOver && !isGameOver && !depositDeadline && !depositResolved) {
+      setDepositDeadline(Date.now() + DEPOSIT_WINDOW_MS);
+      setDepositInput(0);
+    }
+  }, [handIsOver, isGameOver, depositDeadline, depositResolved]);
+
+  useEffect(() => {
+    if (!depositDeadline) return;
+    const id = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(id);
+  }, [depositDeadline]);
+
   function doAction(a: DrawAction) {
     const next = { ...state };
     applyDrawAction(next, a);
@@ -83,6 +103,9 @@ export function DrawGame({ setup, fastBots, showHints, onExit }: Props) {
     const next = { ...state };
     startDrawHand(next);
     setState({ ...next });
+    setDepositDeadline(null);
+    setDepositResolved(false);
+    setDepositInput(0);
   }
 
   function toggleDiscard(i: number) {
@@ -90,6 +113,29 @@ export function DrawGame({ setup, fastBots, showHints, onExit }: Props) {
     if (ns.has(i)) ns.delete(i);
     else ns.add(i);
     setDiscardSet(ns);
+  }
+
+  function submitDeposit(amount: number) {
+    const amt = Math.max(0, Math.min(human.chips, Math.floor(amount || 0)));
+    if (amt > 0) {
+      const next = { ...state };
+      next.players = next.players.map((p) =>
+        p.id === human.id ? { ...p, chips: p.chips - amt } : p,
+      );
+      setState(next);
+      depositToBank(amt);
+    }
+    setDepositResolved(true);
+  }
+
+  function quitToMenu() {
+    if (human.chips > 0) depositToBank(human.chips);
+    onExit("menu");
+  }
+
+  function newGame() {
+    if (human.chips > 0) depositToBank(human.chips);
+    onExit("setup");
   }
 
   const legal =
@@ -103,8 +149,16 @@ export function DrawGame({ setup, fastBots, showHints, onExit }: Props) {
   }, [human.hand, showHints]);
 
   const lastWinnerNames = state.lastWinners.map((w) => w.name).join(", ");
-  const isGameOver = gameOverDraw(state);
   const inDrawPhase = state.stage === "drawing";
+  const remainingMs = depositDeadline ? Math.max(0, depositDeadline - now) : 0;
+  const depositWindowOpen =
+    depositDeadline != null && remainingMs > 0 && !depositResolved;
+  const canDealNext =
+    handIsOver &&
+    !isGameOver &&
+    (depositResolved ||
+      (depositDeadline != null && remainingMs <= 0) ||
+      human.chips <= 0);
 
   return (
     <Window
@@ -118,12 +172,10 @@ export function DrawGame({ setup, fastBots, showHints, onExit }: Props) {
             const isToAct =
               idx === state.toActIdx &&
               p.status === "active" &&
-              !isHandOverDraw(state);
+              !handIsOver;
             const showCards =
               p.isHuman ||
-              (isHandOverDraw(state) &&
-                p.status !== "folded" &&
-                p.status !== "out");
+              (handIsOver && p.status !== "folded" && p.status !== "out");
             return (
               <div
                 key={p.id}
@@ -200,17 +252,76 @@ export function DrawGame({ setup, fastBots, showHints, onExit }: Props) {
               Best hand: <strong>{humanBestHint}</strong>
             </div>
           )}
-          {isHandOverDraw(state) && state.lastWinners.length > 0 && (
+          {handIsOver && state.lastWinners.length > 0 && (
             <div
               style={{
-                background: "#ffe",
-                color: "#000",
-                padding: "6px 12px",
-                border: "1px solid #000",
+                background: "var(--panel-strong)",
+                color: "var(--accent)",
+                padding: "6px 14px",
+                border: "1px solid var(--accent)",
+                borderRadius: 2,
+                textAlign: "center",
+                fontSize: 13,
               }}
             >
               {lastWinnerNames} wins {state.lastWinners[0].amount} —{" "}
               {state.lastWinners[0].reason}
+            </div>
+          )}
+          {depositWindowOpen && human.chips > 0 && (
+            <div
+              style={{
+                background: "var(--panel-strong)",
+                border: "1px solid var(--accent)",
+                padding: "8px 12px",
+                borderRadius: 4,
+                marginTop: 6,
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+              }}
+            >
+              <div
+                style={{ display: "flex", justifyContent: "space-between" }}
+              >
+                <strong>Deposit to Bank?</strong>
+                <span style={{ fontFamily: "Lucida Console, monospace" }}>
+                  {Math.ceil(remainingMs / 1000)}s
+                </span>
+              </div>
+              <div className="muted" style={{ fontSize: 11 }}>
+                Move some of your {human.chips.toLocaleString()} chips into
+                your bank.
+              </div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input
+                  type="range"
+                  min={0}
+                  max={human.chips}
+                  step={Math.max(1, Math.floor(human.chips / 100))}
+                  value={depositInput}
+                  onChange={(e) => setDepositInput(Number(e.target.value))}
+                  style={{ flex: 1 }}
+                />
+                <input
+                  type="number"
+                  className="input"
+                  style={{ width: 80 }}
+                  min={0}
+                  max={human.chips}
+                  value={depositInput}
+                  onChange={(e) => setDepositInput(Number(e.target.value))}
+                />
+                <button
+                  className="btn btn-primary"
+                  onClick={() => submitDeposit(depositInput)}
+                >
+                  Deposit
+                </button>
+                <button className="btn" onClick={() => submitDeposit(0)}>
+                  Skip
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -232,17 +343,26 @@ export function DrawGame({ setup, fastBots, showHints, onExit }: Props) {
                 ? "You're out of chips. Game over."
                 : "Game over — you are the last player standing!"}
             </div>
-            <button className="btn" onClick={() => onExit("setup")}>
+            <button className="btn" onClick={newGame}>
               New Game
             </button>
-            <button className="btn" onClick={() => onExit("menu")}>
+            <button className="btn" onClick={quitToMenu}>
               Main Menu
             </button>
           </div>
-        ) : isHandOverDraw(state) ? (
+        ) : handIsOver ? (
           <div className="control-buttons">
             <div style={{ flex: 1 }}>Hand complete.</div>
-            <button className="btn" onClick={nextHand}>
+            <button
+              className="btn btn-primary"
+              onClick={nextHand}
+              disabled={!canDealNext}
+              title={
+                !canDealNext
+                  ? `Deposit window: ${Math.ceil(remainingMs / 1000)}s`
+                  : ""
+              }
+            >
               Next Hand
             </button>
             <button className="btn" onClick={() => setShowQuit(true)}>
@@ -351,10 +471,13 @@ export function DrawGame({ setup, fastBots, showHints, onExit }: Props) {
               <div className="panel-title">Quit Game?</div>
             </div>
             <div className="dialog-body">
-              <p>Are you sure you want to quit this game?</p>
+              <p>
+                Your remaining {human.chips.toLocaleString()} chips will be
+                deposited to your bank.
+              </p>
               <div className="button-row">
-                <button className="btn btn-danger" onClick={() => onExit("menu")}>
-                  Yes
+                <button className="btn btn-danger" onClick={quitToMenu}>
+                  Yes, Quit
                 </button>
                 <button className="btn" onClick={() => setShowQuit(false)}>
                   No

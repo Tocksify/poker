@@ -1,15 +1,16 @@
 import type { Card } from "../poker/cards";
 
 export type GameType = "holdem" | "draw";
+export type LobbyPhase = "lobby" | "buyIn";
 
 export interface RoomConfig {
   gameType: GameType;
   smallBlind: number;
   bigBlind: number;
-  ante: number; // draw only
+  ante: number; // both holdem and draw now
   maxPlayers: number; // 2..8
-  fillBots: boolean;
-  startingChips: number;
+  isPublic: boolean;
+  startingChips: number; // default starting stack hint (not enforced; players choose buyIn)
 }
 
 export interface LobbyPlayer {
@@ -17,29 +18,35 @@ export interface LobbyPlayer {
   name: string;
   isHost: boolean;
   isYou: boolean;
-  isBot: boolean;
+  pendingKick?: boolean;
 }
 
 export interface LobbyState {
   code: string;
   hostId: string;
   status: "lobby" | "playing";
+  phase: LobbyPhase;
   config: RoomConfig;
   players: LobbyPlayer[];
   yourId: string;
+  yourBuyIn: number | null; // your submitted buyIn for the upcoming game (null = not yet)
+  buyInDeadline: number | null; // ms timestamp when buyIn window ends
+  buyInsSubmitted: string[]; // playerIds who've submitted
 }
 
 export interface ViewPlayer {
   id: string;
   name: string;
-  isBot: boolean;
   chips: number;
   bet: number;
-  status: "active" | "folded" | "allin" | "out" | "empty";
-  hole?: Card[] | null; // holdem
-  hand?: Card[] | null; // draw
+  status: "active" | "folded" | "allin" | "out";
+  hole?: Card[] | null;
+  hand?: Card[] | null;
   hasDrawn?: boolean;
   drawnCount?: number;
+  disconnected?: boolean;
+  pendingKick?: boolean;
+  isHost?: boolean;
 }
 
 export interface LegalActions {
@@ -51,14 +58,27 @@ export interface LegalActions {
   maxRaiseTo: number;
 }
 
+export interface PublicRoomInfo {
+  code: string;
+  gameType: GameType;
+  smallBlind: number;
+  bigBlind: number;
+  ante: number;
+  playerCount: number;
+  maxPlayers: number;
+  status: "lobby" | "playing";
+  handNumber: number;
+}
+
 export interface GameView {
   gameType: GameType;
   stage: string;
   yourId: string;
+  hostId: string;
   toActId: string | null;
   dealerId: string | null;
   players: ViewPlayer[];
-  community?: Card[]; // holdem
+  community?: Card[];
   pot: number;
   currentBet: number;
   minRaise: number;
@@ -67,19 +87,23 @@ export interface GameView {
   handNumber: number;
   isHandOver: boolean;
   isGameOver: boolean;
-  legal: LegalActions | null; // when it's your turn (betting)
-  canDrawNow: boolean; // draw stage and it's your turn
+  legal: LegalActions | null;
+  canDrawNow: boolean;
   config: RoomConfig;
+  depositDeadline: number | null; // when between-hand deposit window ends
+  yourDepositSubmitted: boolean;
+  pendingJoinsCount: number;
 }
 
-// === Client → Server ===
 export type ClientMsg =
   | { type: "create"; payload: { name: string; config: RoomConfig } }
   | { type: "join"; payload: { code: string; name: string } }
   | { type: "leave" }
   | { type: "start" }
-  | { type: "addBot" }
-  | { type: "removeSeat"; payload: { seatId: string } } // host kicks a bot/player
+  | { type: "buyIn"; payload: { amount: number } }
+  | { type: "deposit"; payload: { amount: number } }
+  | { type: "kick"; payload: { seatId: string } } // host only — queued for hand end
+  | { type: "listPublic" }
   | {
       type: "action";
       payload:
@@ -92,10 +116,11 @@ export type ClientMsg =
     }
   | { type: "nextHand" };
 
-// === Server → Client ===
 export type ServerMsg =
   | { type: "welcome"; payload: { playerId: string } }
   | { type: "lobby"; payload: LobbyState }
   | { type: "game"; payload: GameView }
-  | { type: "left" }
+  | { type: "left"; payload: { refundChips: number } } // chips returned to player's bank
+  | { type: "bankCredit"; payload: { amount: number; reason: string } } // mid-game bank credit (e.g. deposit)
+  | { type: "publicRooms"; payload: PublicRoomInfo[] }
   | { type: "error"; payload: { message: string } };

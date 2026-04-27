@@ -4,50 +4,73 @@ import { Window } from "@/components/Window";
 import { PlayingCard } from "@/components/Card";
 import { usePokerSocket } from "@/lib/wsClient";
 import type { GameView, ViewPlayer } from "@/lib/protocol";
+import { withdrawFromBank } from "@/lib/bank";
 
 interface Props {
   onNavigate: (s: Screen) => void;
+  bank: number;
 }
 
-export function OnlineGame({ onNavigate }: Props) {
+export function OnlineGame({ onNavigate, bank }: Props) {
   const ws = usePokerSocket();
   const gv = ws.game;
   const [showQuit, setShowQuit] = useState(false);
   const [raiseAmount, setRaiseAmount] = useState(0);
   const [discardSet, setDiscardSet] = useState<Set<number>>(new Set());
+  const [depositAmt, setDepositAmt] = useState(0);
+  const [midJoinBuyIn, setMidJoinBuyIn] = useState(0);
+  const [midJoinSent, setMidJoinSent] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
 
-  // If we left the room or got disconnected, return to online home
   useEffect(() => {
     if (!ws.game && !ws.lobby) {
       onNavigate("online");
     }
   }, [ws.game, ws.lobby, onNavigate]);
 
-  // If we returned to lobby (e.g. after host kicked someone? not implemented),
-  // jump to lobby
   useEffect(() => {
     if (!ws.game && ws.lobby && ws.lobby.status === "lobby") {
       onNavigate("online-lobby");
     }
   }, [ws.game, ws.lobby, onNavigate]);
 
-  // Reset raise slider when it becomes our turn
   useEffect(() => {
     if (gv?.legal?.canRaise) {
-      const me = gv.players.find((p) => p.id === gv.yourId);
       const minTo = gv.legal.minRaiseTo;
       const maxTo = gv.legal.maxRaiseTo;
-      void me;
       setRaiseAmount(Math.min(minTo, maxTo));
     }
   }, [gv?.legal, gv?.toActId, gv?.stage]);
 
-  // Reset discard set when it becomes draw stage
   useEffect(() => {
     if (gv?.canDrawNow) {
       setDiscardSet(new Set());
     }
   }, [gv?.canDrawNow, gv?.handNumber]);
+
+  // Reset deposit input each new hand
+  useEffect(() => {
+    setDepositAmt(0);
+  }, [gv?.handNumber]);
+
+  // Tick for countdowns
+  useEffect(() => {
+    if (!gv?.depositDeadline) return;
+    const id = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(id);
+  }, [gv?.depositDeadline]);
+
+  // Initialize mid-game buy-in default
+  useEffect(() => {
+    if (!gv) return;
+    const me = gv.players.find((p) => p.id === gv.yourId);
+    if (!me) {
+      const suggested = Math.min(bank, gv.config.startingChips || gv.config.bigBlind * 50);
+      setMidJoinBuyIn(suggested);
+    } else {
+      setMidJoinSent(false);
+    }
+  }, [gv?.yourId, gv?.players.length, bank]);
 
   if (!gv) {
     return (
@@ -66,9 +89,20 @@ export function OnlineGame({ onNavigate }: Props) {
   const me = gv.players.find((p) => p.id === gv.yourId);
   const toActPlayer = gv.players.find((p) => p.id === gv.toActId);
   const isYourTurn = gv.toActId === gv.yourId && !gv.isHandOver;
-  const isHost = ws.lobby?.hostId === gv.yourId;
+  const isHost = gv.hostId === gv.yourId;
   const titleGameName =
     gv.gameType === "holdem" ? "Texas Hold'em" : "Five Card Draw";
+  const depositRemainingMs = gv.depositDeadline
+    ? Math.max(0, gv.depositDeadline - now)
+    : 0;
+  const depositWindowOpen =
+    gv.depositDeadline != null &&
+    depositRemainingMs > 0 &&
+    !gv.yourDepositSubmitted &&
+    me != null &&
+    me.chips > 0;
+
+  const isMidGameJoiner = me == null;
 
   function toggleDiscard(idx: number) {
     setDiscardSet((prev) => {
@@ -89,6 +123,20 @@ export function OnlineGame({ onNavigate }: Props) {
   function quitToMenu() {
     ws.send({ type: "leave" });
     onNavigate("menu");
+  }
+
+  function submitDeposit(amount: number) {
+    const amt = Math.max(0, Math.floor(amount || 0));
+    ws.send({ type: "deposit", payload: { amount: amt } });
+  }
+
+  function submitMidJoinBuyIn() {
+    if (!gv) return;
+    const bb = gv.config.bigBlind;
+    const amt = Math.max(bb, Math.min(bank, Math.floor(midJoinBuyIn) || 0));
+    withdrawFromBank(amt);
+    ws.send({ type: "buyIn", payload: { amount: amt } });
+    setMidJoinSent(true);
   }
 
   return (
@@ -112,7 +160,14 @@ export function OnlineGame({ onNavigate }: Props) {
         </div>
 
         <div className="community-area">
-          <div className="pot-display">Pot: {gv.pot.toLocaleString()}</div>
+          <div className="pot-display">
+            Pot: {gv.pot.toLocaleString()}
+            {gv.config.ante > 0 && (
+              <span style={{ marginLeft: 12, fontSize: 11 }}>
+                · Ante {gv.config.ante}
+              </span>
+            )}
+          </div>
 
           {gv.gameType === "holdem" && (
             <div className="cards-row">
@@ -155,6 +210,72 @@ export function OnlineGame({ onNavigate }: Props) {
               {gv.lastWinners[0].reason}
             </div>
           )}
+
+          {depositWindowOpen && me && (
+            <div
+              style={{
+                background: "var(--panel-strong)",
+                border: "1px solid var(--accent)",
+                padding: "8px 12px",
+                borderRadius: 4,
+                marginTop: 6,
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+              }}
+            >
+              <div
+                style={{ display: "flex", justifyContent: "space-between" }}
+              >
+                <strong>Deposit to Bank?</strong>
+                <span style={{ fontFamily: "Lucida Console, monospace" }}>
+                  {Math.ceil(depositRemainingMs / 1000)}s
+                </span>
+              </div>
+              <div className="muted" style={{ fontSize: 11 }}>
+                Move some of your {me.chips.toLocaleString()} chips into your
+                bank.
+              </div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input
+                  type="range"
+                  min={0}
+                  max={me.chips}
+                  step={Math.max(1, Math.floor(me.chips / 100))}
+                  value={depositAmt}
+                  onChange={(e) => setDepositAmt(Number(e.target.value))}
+                  style={{ flex: 1 }}
+                />
+                <input
+                  type="number"
+                  className="input"
+                  style={{ width: 80 }}
+                  min={0}
+                  max={me.chips}
+                  value={depositAmt}
+                  onChange={(e) => setDepositAmt(Number(e.target.value))}
+                />
+                <button
+                  className="btn btn-primary"
+                  onClick={() => submitDeposit(depositAmt)}
+                >
+                  Deposit
+                </button>
+                <button className="btn" onClick={() => submitDeposit(0)}>
+                  Skip
+                </button>
+              </div>
+            </div>
+          )}
+
+          {gv.pendingJoinsCount > 0 && (
+            <div
+              className="muted"
+              style={{ fontSize: 11, textAlign: "center", marginTop: 4 }}
+            >
+              {gv.pendingJoinsCount} player(s) waiting to be seated next hand
+            </div>
+          )}
         </div>
       </div>
 
@@ -184,11 +305,21 @@ export function OnlineGame({ onNavigate }: Props) {
           </div>
         ) : gv.isHandOver ? (
           <div className="control-buttons">
-            <div style={{ flex: 1 }}>Hand complete.</div>
+            <div style={{ flex: 1 }}>
+              {gv.depositDeadline
+                ? `Deposit window: ${Math.ceil(depositRemainingMs / 1000)}s`
+                : "Hand complete."}
+            </div>
             {isHost && (
               <button
                 className="btn btn-primary"
+                disabled={depositRemainingMs > 0}
                 onClick={() => ws.send({ type: "nextHand" })}
+                title={
+                  depositRemainingMs > 0
+                    ? `Wait ${Math.ceil(depositRemainingMs / 1000)}s for deposit window`
+                    : ""
+                }
               >
                 Deal Next Hand
               </button>
@@ -227,9 +358,11 @@ export function OnlineGame({ onNavigate }: Props) {
         ) : (
           <div className="control-buttons">
             <div style={{ flex: 1 }}>
-              {gv.canDrawNow && toActPlayer
-                ? `${toActPlayer.name} is choosing cards to draw...`
-                : `Waiting for ${toActPlayer?.name ?? "..."}`}
+              {isMidGameJoiner
+                ? "You'll be seated next hand."
+                : gv.canDrawNow && toActPlayer
+                  ? `${toActPlayer.name} is choosing cards to draw...`
+                  : `Waiting for ${toActPlayer?.name ?? "..."}`}
             </div>
             <button className="btn" onClick={() => setShowQuit(true)}>
               Quit
@@ -237,6 +370,61 @@ export function OnlineGame({ onNavigate }: Props) {
           </div>
         )}
       </div>
+
+      {/* Mid-game buy-in dialog */}
+      {isMidGameJoiner && !midJoinSent && (
+        <div className="dialog-overlay">
+          <div className="dialog" style={{ maxWidth: 420 }}>
+            <div className="panel-header">
+              <div className="panel-title">Buy In to Join</div>
+            </div>
+            <div className="dialog-body">
+              <p style={{ marginBottom: 8 }}>
+                You're joining a game in progress. Choose your buy-in. You'll
+                be dealt in at the next hand.
+              </p>
+              <div style={{ fontSize: 12, marginBottom: 8 }}>
+                Bank: <strong>{bank.toLocaleString()}</strong> · Min{" "}
+                {gv.config.bigBlind} (one big blind)
+              </div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input
+                  type="range"
+                  min={Math.min(gv.config.bigBlind, bank)}
+                  max={bank}
+                  step={Math.max(1, Math.floor(bank / 100))}
+                  value={midJoinBuyIn}
+                  onChange={(e) => setMidJoinBuyIn(Number(e.target.value))}
+                  style={{ flex: 1 }}
+                />
+                <input
+                  type="number"
+                  className="input"
+                  style={{ width: 90 }}
+                  min={gv.config.bigBlind}
+                  max={bank}
+                  value={midJoinBuyIn}
+                  onChange={(e) => setMidJoinBuyIn(Number(e.target.value))}
+                />
+              </div>
+              <div className="button-row">
+                <button
+                  className="btn btn-primary"
+                  disabled={
+                    midJoinBuyIn < gv.config.bigBlind || midJoinBuyIn > bank
+                  }
+                  onClick={submitMidJoinBuyIn}
+                >
+                  Buy In
+                </button>
+                <button className="btn" onClick={quitToMenu}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showQuit && (
         <div className="dialog-overlay">
@@ -246,8 +434,8 @@ export function OnlineGame({ onNavigate }: Props) {
             </div>
             <div className="dialog-body">
               <p>
-                If you leave during a hand, your seat will be played by a bot
-                until the hand ends.
+                Your remaining chips will be returned to your bank. If you just
+                close the tab instead, those chips will be forfeit.
               </p>
               <div className="button-row">
                 <button className="btn btn-danger" onClick={quitToMenu}>
@@ -280,16 +468,27 @@ function PlayerSeat({
 }) {
   const cards = gameType === "holdem" ? player.hole : player.hand;
   const cardCount = gameType === "holdem" ? 2 : 5;
+  const dimmed = player.disconnected;
   return (
     <div
       className={`player-card ${isToAct ? "active" : ""} ${
         player.status === "folded" ? "folded" : ""
-      } ${isYou ? "me" : ""}`}
+      } ${isYou ? "me" : ""} ${dimmed ? "disconnected-seat" : ""}`}
     >
       <div className="player-name">
         {player.name}
         {isDealer && " (D)"}
         {isYou && " · You"}
+        {player.isHost && (
+          <span className="player-badge host" style={{ marginLeft: 4 }}>
+            HOST
+          </span>
+        )}
+        {player.pendingKick && (
+          <span className="player-badge fold" style={{ marginLeft: 4 }}>
+            KICK
+          </span>
+        )}
       </div>
       <div className="player-stats">
         Chips: {player.chips.toLocaleString()}
@@ -304,14 +503,20 @@ function PlayerSeat({
             ? null
             : cards.map((c, i) => <PlayingCard key={i} card={c} small />)}
       </div>
-      {player.status === "folded" && (
-        <div className="player-action-tag fold">FOLDED</div>
-      )}
-      {player.status === "allin" && (
-        <div className="player-action-tag allin">ALL IN</div>
-      )}
-      {player.status === "out" && (
-        <div className="player-action-tag fold">OUT</div>
+      {player.disconnected ? (
+        <div className="player-action-tag fold">DISCONNECTED</div>
+      ) : (
+        <>
+          {player.status === "folded" && (
+            <div className="player-action-tag fold">FOLDED</div>
+          )}
+          {player.status === "allin" && (
+            <div className="player-action-tag allin">ALL IN</div>
+          )}
+          {player.status === "out" && (
+            <div className="player-action-tag fold">OUT</div>
+          )}
+        </>
       )}
       {gameType === "draw" &&
         player.hasDrawn &&

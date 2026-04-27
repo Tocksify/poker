@@ -2,6 +2,7 @@
 import type { Card } from "./cards";
 
 export type GameType = "holdem" | "draw";
+export type LobbyPhase = "lobby" | "buyIn";
 
 export interface RoomConfig {
   gameType: GameType;
@@ -9,7 +10,7 @@ export interface RoomConfig {
   bigBlind: number;
   ante: number;
   maxPlayers: number;
-  fillBots: boolean;
+  isPublic: boolean;
   startingChips: number;
 }
 
@@ -18,29 +19,35 @@ export interface LobbyPlayer {
   name: string;
   isHost: boolean;
   isYou: boolean;
-  isBot: boolean;
+  pendingKick?: boolean;
 }
 
 export interface LobbyState {
   code: string;
   hostId: string;
   status: "lobby" | "playing";
+  phase: LobbyPhase;
   config: RoomConfig;
   players: LobbyPlayer[];
   yourId: string;
+  yourBuyIn: number | null;
+  buyInDeadline: number | null;
+  buyInsSubmitted: string[];
 }
 
 export interface ViewPlayer {
   id: string;
   name: string;
-  isBot: boolean;
   chips: number;
   bet: number;
-  status: "active" | "folded" | "allin" | "out" | "empty";
+  status: "active" | "folded" | "allin" | "out";
   hole?: Card[] | null;
   hand?: Card[] | null;
   hasDrawn?: boolean;
   drawnCount?: number;
+  disconnected?: boolean;
+  pendingKick?: boolean;
+  isHost?: boolean;
 }
 
 export interface LegalActions {
@@ -52,10 +59,23 @@ export interface LegalActions {
   maxRaiseTo: number;
 }
 
+export interface PublicRoomInfo {
+  code: string;
+  gameType: GameType;
+  smallBlind: number;
+  bigBlind: number;
+  ante: number;
+  playerCount: number;
+  maxPlayers: number;
+  status: "lobby" | "playing";
+  handNumber: number;
+}
+
 export interface GameView {
   gameType: GameType;
   stage: string;
   yourId: string;
+  hostId: string;
   toActId: string | null;
   dealerId: string | null;
   players: ViewPlayer[];
@@ -71,6 +91,9 @@ export interface GameView {
   legal: LegalActions | null;
   canDrawNow: boolean;
   config: RoomConfig;
+  depositDeadline: number | null;
+  yourDepositSubmitted: boolean;
+  pendingJoinsCount: number;
 }
 
 export type ClientMsg =
@@ -78,8 +101,10 @@ export type ClientMsg =
   | { type: "join"; payload: { code: string; name: string } }
   | { type: "leave" }
   | { type: "start" }
-  | { type: "addBot" }
-  | { type: "removeSeat"; payload: { seatId: string } }
+  | { type: "buyIn"; payload: { amount: number } }
+  | { type: "deposit"; payload: { amount: number } }
+  | { type: "kick"; payload: { seatId: string } }
+  | { type: "listPublic" }
   | {
       type: "action";
       payload:
@@ -96,5 +121,7 @@ export type ServerMsg =
   | { type: "welcome"; payload: { playerId: string } }
   | { type: "lobby"; payload: LobbyState }
   | { type: "game"; payload: GameView }
-  | { type: "left" }
+  | { type: "left"; payload: { refundChips: number } }
+  | { type: "bankCredit"; payload: { amount: number; reason: string } }
+  | { type: "publicRooms"; payload: PublicRoomInfo[] }
   | { type: "error"; payload: { message: string } };

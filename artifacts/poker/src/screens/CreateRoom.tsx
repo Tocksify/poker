@@ -14,10 +14,9 @@ export function CreateRoom({ onNavigate, playerName }: Props) {
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [smallBlind, setSmallBlind] = useState(10);
   const [startingChips, setStartingChips] = useState(1000);
-  const [ante, setAnte] = useState(5);
-  const [fillBots, setFillBots] = useState(true);
+  const [ante, setAnte] = useState(0);
+  const [isPublic, setIsPublic] = useState(true);
 
-  // When lobby state arrives, navigate to lobby
   useEffect(() => {
     if (ws.lobby && ws.lobby.status === "lobby") {
       onNavigate("online-lobby");
@@ -33,10 +32,10 @@ export function CreateRoom({ onNavigate, playerName }: Props) {
           gameType,
           smallBlind,
           bigBlind: smallBlind * 2,
-          ante: gameType === "draw" ? ante : 0,
+          ante,
           maxPlayers,
-          fillBots,
           startingChips,
+          isPublic,
         },
       },
     });
@@ -93,17 +92,18 @@ export function CreateRoom({ onNavigate, playerName }: Props) {
           </div>
         </div>
         <div className="form-row">
-          <label htmlFor="cr-fill">Fill Empty Seats:</label>
+          <label htmlFor="cr-public">Public Room:</label>
           <div>
             <input
-              id="cr-fill"
+              id="cr-public"
               type="checkbox"
-              checked={fillBots}
-              onChange={(e) => setFillBots(e.target.checked)}
+              checked={isPublic}
+              onChange={(e) => setIsPublic(e.target.checked)}
             />
             <span style={{ marginLeft: 8 }}>
-              If lobby isn't full when game starts, fill remaining seats with
-              bots
+              {isPublic
+                ? "Listed publicly — anyone can join."
+                : "Private — invite code only."}
             </span>
           </div>
         </div>
@@ -112,7 +112,7 @@ export function CreateRoom({ onNavigate, playerName }: Props) {
       <fieldset className="fieldset">
         <legend>Stakes</legend>
         <div className="form-row">
-          <label htmlFor="cr-chips">Starting Chips:</label>
+          <label htmlFor="cr-chips">Suggested Buy-In:</label>
           <select
             id="cr-chips"
             className="select"
@@ -141,23 +141,22 @@ export function CreateRoom({ onNavigate, playerName }: Props) {
             <option value={100}>100 (BB 200)</option>
           </select>
         </div>
-        {gameType === "draw" && (
-          <div className="form-row">
-            <label htmlFor="cr-ante">Ante:</label>
-            <select
-              id="cr-ante"
-              className="select"
-              value={ante}
-              onChange={(e) => setAnte(Number(e.target.value))}
-            >
-              <option value={0}>None</option>
-              <option value={1}>1</option>
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-            </select>
-          </div>
-        )}
+        <div className="form-row">
+          <label htmlFor="cr-ante">Ante:</label>
+          <select
+            id="cr-ante"
+            className="select"
+            value={ante}
+            onChange={(e) => setAnte(Number(e.target.value))}
+          >
+            <option value={0}>None</option>
+            <option value={1}>1</option>
+            <option value={5}>5</option>
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+          </select>
+        </div>
       </fieldset>
 
       {ws.error && (

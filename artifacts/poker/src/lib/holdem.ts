@@ -33,6 +33,7 @@ export interface HoldemConfig {
   startingChips: number;
   smallBlind: number;
   bigBlind: number;
+  ante?: number;
 }
 
 export interface HoldemState {
@@ -139,6 +140,17 @@ export function startHand(state: HoldemState): void {
     }
   }
 
+  // antes
+  const ante = state.config.ante ?? 0;
+  if (ante > 0) {
+    for (let i = 0; i < state.players.length; i++) {
+      if (state.players[i].status !== "out") {
+        postBet(state, i, ante);
+        state.players[i].bet = 0; // antes go to pot but don't count as round bet
+      }
+    }
+  }
+
   // post blinds
   const sbIdx = nextNonOut(state.players, state.dealerIdx);
   const bbIdx = nextNonOut(state.players, sbIdx);
@@ -161,7 +173,7 @@ export function startHand(state: HoldemState): void {
   state.toActIdx = nextNonOut(state.players, bbIdx);
   log(
     state,
-    `--- Hand #${state.handNumber} --- Blinds: ${state.config.smallBlind}/${state.config.bigBlind}`,
+    `--- Hand #${state.handNumber} --- ${ante > 0 ? `Ante: ${ante}, ` : ""}Blinds: ${state.config.smallBlind}/${state.config.bigBlind}`,
   );
   log(
     state,

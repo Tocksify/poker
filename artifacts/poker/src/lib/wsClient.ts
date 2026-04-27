@@ -3,8 +3,10 @@ import type {
   ClientMsg,
   GameView,
   LobbyState,
+  PublicRoomInfo,
   ServerMsg,
 } from "./protocol";
+import { depositToBank } from "./bank";
 
 type Status = "connecting" | "open" | "closed" | "error";
 
@@ -13,6 +15,7 @@ interface PokerStore {
   playerId: string | null;
   lobby: LobbyState | null;
   game: GameView | null;
+  publicRooms: PublicRoomInfo[];
   error: string | null;
   send: (msg: ClientMsg) => void;
   reconnect: () => void;
@@ -20,12 +23,13 @@ interface PokerStore {
 }
 
 let socket: WebSocket | null = null;
-let listeners = new Set<(s: PokerStore) => void>();
+const listeners = new Set<(s: PokerStore) => void>();
 let state: Omit<PokerStore, "send" | "reconnect" | "clearError"> = {
   status: "closed",
   playerId: null,
   lobby: null,
   game: null,
+  publicRooms: [],
   error: null,
 };
 
@@ -107,13 +111,25 @@ function handleServerMsg(msg: ServerMsg) {
       state = { ...state, playerId: msg.payload.playerId };
       break;
     case "lobby":
-      state = { ...state, lobby: msg.payload, game: null };
+      state = { ...state, lobby: msg.payload };
       break;
     case "game":
       state = { ...state, game: msg.payload };
       break;
     case "left":
+      // Refund any chips returned to our local bank
+      if (msg.payload.refundChips > 0) {
+        depositToBank(msg.payload.refundChips);
+      }
       state = { ...state, lobby: null, game: null };
+      break;
+    case "bankCredit":
+      if (msg.payload.amount > 0) {
+        depositToBank(msg.payload.amount);
+      }
+      break;
+    case "publicRooms":
+      state = { ...state, publicRooms: msg.payload };
       break;
     case "error":
       state = { ...state, error: msg.payload.message };
@@ -150,7 +166,6 @@ export function usePokerSocket(): PokerStore {
     ) {
       connect();
     } else {
-      // already connected/connecting — sync current snapshot
       setSnap(makeStore());
     }
     return () => {
