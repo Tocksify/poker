@@ -1,5 +1,18 @@
+// Bank: in-game currency.
+// - Logged in: bank is server-backed (lives on the account profile).
+//   We treat the cached account profile as the source of truth and PATCH
+//   the server in the background via account.patchProfileLocal.
+// - Guest: bank is stored in localStorage.
+
+import {
+  getAccount,
+  patchProfileLocal,
+  subscribeAccount,
+} from "./account";
+
 const STORAGE_KEY = "poker-bank-v1";
-const DAILY_KEY = "poker-bank-daily-v1";
+const DAILY_KEY_GUEST = "poker-bank-daily-v1";
+const DAILY_KEY_PREFIX = "poker-bank-daily-v1:";
 
 const STARTING_BALANCE = 0;
 const DAILY_AMOUNT = 200;
@@ -7,7 +20,12 @@ const DAILY_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 const listeners = new Set<() => void>();
 
+// Account changes (login/logout) effectively change the bank value.
+subscribeAccount(() => listeners.forEach((l) => l()));
+
 function read(): number {
+  const acc = getAccount();
+  if (acc) return Math.max(0, Math.floor(acc.bank));
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw == null) return STARTING_BALANCE;
@@ -19,10 +37,16 @@ function read(): number {
 }
 
 function write(v: number) {
-  try {
-    localStorage.setItem(STORAGE_KEY, String(Math.max(0, Math.floor(v))));
-  } catch {}
-  listeners.forEach((l) => l());
+  const safe = Math.max(0, Math.floor(v));
+  const acc = getAccount();
+  if (acc) {
+    patchProfileLocal({ bank: safe });
+  } else {
+    try {
+      localStorage.setItem(STORAGE_KEY, String(safe));
+    } catch {}
+    listeners.forEach((l) => l());
+  }
 }
 
 export function getBank(): number {
@@ -45,9 +69,15 @@ export function withdrawFromBank(amount: number): number {
   return take;
 }
 
+function dailyKey(): string {
+  const acc = getAccount();
+  if (acc) return DAILY_KEY_PREFIX + acc.username;
+  return DAILY_KEY_GUEST;
+}
+
 export function lastDailyClaimAt(): number {
   try {
-    const raw = localStorage.getItem(DAILY_KEY);
+    const raw = localStorage.getItem(dailyKey());
     if (!raw) return 0;
     const n = Number(raw);
     return Number.isFinite(n) ? n : 0;
@@ -67,14 +97,14 @@ export function nextDailyAvailableAt(): number {
 export function claimDaily(): { ok: boolean; amount: number } {
   if (!canClaimDaily()) return { ok: false, amount: 0 };
   try {
-    localStorage.setItem(DAILY_KEY, String(Date.now()));
+    localStorage.setItem(dailyKey(), String(Date.now()));
   } catch {}
   depositToBank(DAILY_AMOUNT);
   return { ok: true, amount: DAILY_AMOUNT };
 }
 
 export const DAILY_CLAIM_AMOUNT = DAILY_AMOUNT;
-export const STARTER_FREE_STACK_MULTIPLIER = 10; // free stack = 10 * smallBlind when broke
+export const STARTER_FREE_STACK_MULTIPLIER = 10;
 
 export function subscribe(fn: () => void): () => void {
   listeners.add(fn);

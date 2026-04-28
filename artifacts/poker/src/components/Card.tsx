@@ -1,5 +1,8 @@
 import type { Card as CardType } from "@/lib/cards";
 import { RANK_NAMES, SUIT_SYMBOLS, isRedSuit } from "@/lib/cards";
+import { getAccount, subscribeAccount } from "@/lib/account";
+import { cardBackId } from "@/lib/cosmetics";
+import { useEffect, useState } from "react";
 
 interface Props {
   card?: CardType;
@@ -9,12 +12,25 @@ interface Props {
   marked?: boolean;
 }
 
+function useEquippedBack(): string {
+  const [back, setBack] = useState(() =>
+    cardBackId(getAccount()?.equipped ?? null),
+  );
+  useEffect(() => {
+    return subscribeAccount(() => {
+      setBack(cardBackId(getAccount()?.equipped ?? null));
+    });
+  }, []);
+  return back;
+}
+
 export function PlayingCard({ card, hidden, small, onClick, marked }: Props) {
   const sizeCls = small ? "card small" : "card";
+  const backSkin = useEquippedBack();
   if (hidden || !card) {
     return (
       <div
-        className={`${sizeCls} back ${marked ? "discard" : ""} ${onClick ? "draw-card-toggle" : ""}`}
+        className={`${sizeCls} back skin-${backSkin} ${marked ? "discard" : ""} ${onClick ? "draw-card-toggle" : ""}`}
         onClick={onClick}
       >
         &nbsp;

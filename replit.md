@@ -16,7 +16,10 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - Server is the single source of truth for game state. It redacts other players' hole/hand cards (only your own cards are sent to your socket; everything is revealed at hand-end).
 - Bots run server-side via a `setTimeout` ticker on the room (700–1300 ms thinking time). Disconnects during a hand convert that seat to a bot so the game can continue; lobby disconnects free the seat.
 - Host (room creator) controls Start, Add Bot, Remove Player, Deal Next Hand. Optional `fillBots` config fills empty seats with bots when the host starts.
-- Online button on the main menu is gated on a non-empty player name being set in Settings (stored in `localStorage` under `poker-settings-v1`).
+- Online button on the main menu is gated on being signed in to an account AND having chips. Accounts (username + password) are created in Settings; auth is custom (PBKDF2-SHA256, no native deps) with a bearer token in `localStorage` (`poker-account-token-v1`). Profile (bank + inventory + equipped cosmetics) is server-side in Postgres tables `accounts` and `sessions` and synced via `/api/auth/{signup,login,logout,me,profile}`.
+- Bank: when signed in it's part of the account profile and PATCHed to the server in the background; when guest it's local (`poker-bank-v1`). The `lib/bank.ts` module is account-aware and forwards to either source.
+- Shop sells cosmetics: card-back skins (applied via `.card.back.skin-<id>` class on `PlayingCard`), username text colors (applied wherever the player name is shown for the local user), and titles (prefix on the username). Catalog is in `src/lib/cosmetics.ts`. Owned items are stored on `account.inventory`; equipped selections on `account.equipped`.
+- Deposit-window panel uses `.deposit-overlay` (fixed, bottom-center, z-index 60) so it floats above the felt and is never clipped by the community area frame.
 
 ## Stack
 

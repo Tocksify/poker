@@ -163,6 +163,10 @@ export function CreateRoom({ onNavigate, playerName }: Props) {
         <div style={{ color: "#f99", padding: "4px 0" }}>{ws.error}</div>
       )}
 
+      <div className="muted" style={{ fontSize: 11 }}>
+        Hosting as <strong>{playerName}</strong>
+      </div>
+
       <div className="button-row">
         <button
           className="btn btn-primary"

@@ -11,6 +11,12 @@ import { Shop } from "@/screens/Shop";
 import { HoldemGame } from "@/screens/HoldemGame";
 import { DrawGame } from "@/screens/DrawGame";
 import { getBank, subscribe } from "@/lib/bank";
+import {
+  getAccount,
+  refreshProfile,
+  subscribeAccount,
+  type AccountProfile,
+} from "@/lib/account";
 
 export type Screen =
   | "menu"
@@ -28,11 +34,11 @@ export type Screen =
 export interface GameSetup {
   style: "holdem" | "draw";
   players: { name: string; isHuman: boolean }[];
-  startingChips: number; // both human and bots get this
+  startingChips: number;
   smallBlind: number;
   bigBlind: number;
   ante: number;
-  isFreeStarter: boolean; // true when bank was 0 and we used the free starter
+  isFreeStarter: boolean;
 }
 
 interface Settings {
@@ -62,12 +68,23 @@ function App() {
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
   const [setup, setSetup] = useState<GameSetup | null>(null);
   const [bank, setBank] = useState<number>(() => getBank());
+  const [account, setAccount] = useState<AccountProfile | null>(() => getAccount());
 
-  // Subscribe to bank changes for live updates
   useEffect(() => {
     const unsub = subscribe(() => setBank(getBank()));
     return unsub;
   }, []);
+
+  useEffect(() => {
+    const unsub = subscribeAccount(() => setAccount(getAccount()));
+    // On startup, if we have a token, fetch fresh profile (catches changes
+    // made on other devices and cleans up invalid tokens).
+    void refreshProfile();
+    return unsub;
+  }, []);
+
+  const effectiveName =
+    account?.username || settings.playerName.trim() || "Player";
 
   function saveSettings(s: Settings) {
     setSettings(s);
@@ -86,28 +103,33 @@ function App() {
       {screen === "menu" && (
         <MainMenu
           onNavigate={setScreen}
-          playerName={settings.playerName}
+          playerName={effectiveName}
           bank={bank}
+          account={account}
         />
       )}
       {screen === "setup" && (
         <SingleSetup
           onNavigate={setScreen}
-          playerName={settings.playerName || "Player"}
+          playerName={effectiveName}
           onStart={handleStart}
         />
       )}
       {screen === "online" && (
-        <OnlineHome onNavigate={setScreen} bank={bank} />
+        <OnlineHome
+          onNavigate={setScreen}
+          bank={bank}
+          account={account}
+        />
       )}
       {screen === "online-create" && (
         <CreateRoom
           onNavigate={setScreen}
-          playerName={settings.playerName}
+          playerName={effectiveName}
         />
       )}
       {screen === "online-join" && (
-        <JoinRoom onNavigate={setScreen} playerName={settings.playerName} />
+        <JoinRoom onNavigate={setScreen} playerName={effectiveName} />
       )}
       {screen === "online-lobby" && (
         <OnlineLobby onNavigate={setScreen} bank={bank} />

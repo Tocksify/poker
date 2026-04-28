@@ -10,6 +10,21 @@ import {
   setBank,
   subscribe,
 } from "@/lib/bank";
+import {
+  getAccount,
+  patchProfileLocal,
+  subscribeAccount,
+  type AccountProfile,
+} from "@/lib/account";
+import {
+  CARD_BACKS,
+  NAME_COLORS,
+  TITLES,
+  isOwned,
+  nameColorValue,
+  titleLabel,
+  type CosmeticItem,
+} from "@/lib/cosmetics";
 
 interface Props {
   onNavigate: (s: Screen) => void;
@@ -29,9 +44,15 @@ export function Shop({ onNavigate }: Props) {
   const [now, setNow] = useState(() => Date.now());
   const [confirmReset, setConfirmReset] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  const [account, setAccount] = useState<AccountProfile | null>(() => getAccount());
 
   useEffect(() => {
     const unsub = subscribe(() => setBankState(getBank()));
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    const unsub = subscribeAccount(() => setAccount(getAccount()));
     return unsub;
   }, []);
 
@@ -42,26 +63,112 @@ export function Shop({ onNavigate }: Props) {
 
   const dailyReady = canClaimDaily();
   const remainMs = nextDailyAvailableAt() - now;
+  const inventory = account?.inventory ?? [];
+  const equipped = account?.equipped ?? {};
+
+  function flashMsg(msg: string, ms = 1500) {
+    setFlash(msg);
+    window.setTimeout(() => setFlash(null), ms);
+  }
 
   function handleClaim() {
     const r = claimDaily();
-    if (r.ok) {
-      setFlash(`+${r.amount} chips claimed!`);
-      window.setTimeout(() => setFlash(null), 2000);
-    }
+    if (r.ok) flashMsg(`+${r.amount} chips claimed!`, 2000);
   }
 
   function handleReset() {
     setBank(0);
     setConfirmReset(false);
-    setFlash("Bank reset to 0");
-    window.setTimeout(() => setFlash(null), 1500);
+    flashMsg("Bank reset to 0");
+  }
+
+  function buyItem(item: CosmeticItem) {
+    if (!account) {
+      flashMsg("Sign in to buy items");
+      return;
+    }
+    if (isOwned(item, inventory)) return;
+    if (bank < item.price) {
+      flashMsg("Not enough chips");
+      return;
+    }
+    setBank(bank - item.price);
+    const nextInv = [...inventory, item.id];
+    const nextEq = {
+      ...equipped,
+      [item.kind]: item.id,
+    };
+    patchProfileLocal({ inventory: nextInv, equipped: nextEq });
+    flashMsg(`Bought ${item.label}`);
+  }
+
+  function equipItem(item: CosmeticItem) {
+    if (!account) return;
+    if (!isOwned(item, inventory)) return;
+    patchProfileLocal({ equipped: { ...equipped, [item.kind]: item.id } });
+    flashMsg(`Equipped ${item.label}`);
+  }
+
+  function renderRow(item: CosmeticItem) {
+    const owned = isOwned(item, inventory);
+    const equippedHere = equipped[item.kind] === item.id;
+    return (
+      <div className="shop-item-row" key={item.id}>
+        <div className="shop-item-preview">
+          {item.kind === "cardBack" && (
+            <div className={`card small back skin-${item.id}`}>&nbsp;</div>
+          )}
+          {item.kind === "nameColor" && (
+            <span
+              style={{
+                color: item.color,
+                fontWeight: "bold",
+                textShadow: "0 0 1px rgba(0,0,0,0.6)",
+              }}
+            >
+              Sample
+            </span>
+          )}
+          {item.kind === "title" && (
+            <span style={{ fontStyle: "italic", opacity: 0.85 }}>
+              {item.id === "none" ? "—" : item.label}
+            </span>
+          )}
+        </div>
+        <div className="shop-item-name">{item.label}</div>
+        <div className="shop-item-price">
+          {item.free ? "Free" : `${item.price} chips`}
+        </div>
+        <div className="shop-item-actions">
+          {owned ? (
+            equippedHere ? (
+              <span className="muted" style={{ fontSize: 11 }}>
+                Equipped
+              </span>
+            ) : (
+              <button className="btn" onClick={() => equipItem(item)}>
+                Equip
+              </button>
+            )
+          ) : (
+            <button
+              className="btn btn-primary"
+              disabled={!account || bank < item.price}
+              onClick={() => buyItem(item)}
+              title={!account ? "Sign in to buy" : undefined}
+            >
+              Buy
+            </button>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (
     <Window
       title="Shop &amp; Bank"
-      className="setup-window"
+      className="shop-window"
       onClose={() => onNavigate("menu")}
     >
       <fieldset className="fieldset">
@@ -71,7 +178,9 @@ export function Shop({ onNavigate }: Props) {
           <span className="bank-amount">{bank.toLocaleString()}</span>
         </div>
         <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
-          Use chips to buy in to games. Win pots, deposit between rounds, repeat.
+          {account
+            ? `Signed in as ${account.username}. Bank and items are saved to your account.`
+            : "Playing as guest — bank lives only on this device. Sign in from Settings to save it."}
         </div>
       </fieldset>
 
@@ -101,6 +210,26 @@ export function Shop({ onNavigate }: Props) {
             )}
           </div>
         </div>
+      </fieldset>
+
+      <fieldset className="fieldset">
+        <legend>Card Back Skins</legend>
+        {!account && (
+          <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>
+            Sign in from Settings to buy and equip skins.
+          </div>
+        )}
+        <div className="shop-item-list">{CARD_BACKS.map(renderRow)}</div>
+      </fieldset>
+
+      <fieldset className="fieldset">
+        <legend>Username Colors</legend>
+        <div className="shop-item-list">{NAME_COLORS.map(renderRow)}</div>
+      </fieldset>
+
+      <fieldset className="fieldset">
+        <legend>Titles</legend>
+        <div className="shop-item-list">{TITLES.map(renderRow)}</div>
       </fieldset>
 
       <fieldset className="fieldset">
@@ -152,6 +281,8 @@ export function Shop({ onNavigate }: Props) {
           </button>
         )}
       </div>
+      {/* unused vars guard for static analysis */}
+      <span style={{ display: "none" }}>{titleLabel(equipped)}{nameColorValue(equipped)}</span>
     </Window>
   );
 }

@@ -269,18 +269,7 @@ export function DrawGame({ setup, fastBots, showHints, onExit }: Props) {
             </div>
           )}
           {depositWindowOpen && human.chips > 0 && (
-            <div
-              style={{
-                background: "var(--panel-strong)",
-                border: "1px solid var(--accent)",
-                padding: "8px 12px",
-                borderRadius: 4,
-                marginTop: 6,
-                display: "flex",
-                flexDirection: "column",
-                gap: 6,
-              }}
-            >
+            <div className="deposit-overlay">
               <div
                 style={{ display: "flex", justifyContent: "space-between" }}
               >

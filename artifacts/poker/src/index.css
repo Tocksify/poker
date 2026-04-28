@@ -591,3 +591,95 @@ input[type="checkbox"], input[type="radio"] {
 }
 
 .scrollable { overflow: auto; }
+
+/* Deposit overlay — floats above the felt so it is never clipped by the
+   community area frame. Positioned at bottom-center of the viewport. */
+.deposit-overlay {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  width: min(680px, 92vw);
+  background: var(--panel-strong);
+  border: 2px solid var(--accent);
+  padding: 10px 14px;
+  border-radius: 6px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Card back skin variants — applied via .card.back.skin-<id> */
+.card.back.skin-classic {
+  background:
+    repeating-linear-gradient(45deg, #1c4a8a, #1c4a8a 4px, #2a5fa8 4px, #2a5fa8 8px);
+  border-color: #0c2a55;
+}
+.card.back.skin-ruby {
+  background:
+    repeating-linear-gradient(45deg, #5a1a78, #5a1a78 6px, #7a2a98 6px, #7a2a98 12px);
+  border-color: #3a0a4d;
+}
+.card.back.skin-stars {
+  background-color: #1a3a1a;
+  background-image:
+    radial-gradient(circle at 25% 25%, #f5d000 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 75% 75%, #f5d000 0 1.5px, transparent 2.5px);
+  background-size: 14px 14px, 14px 14px;
+  border-color: #0a1a0a;
+}
+.card.back.skin-checker {
+  background:
+    repeating-linear-gradient(0deg, #800 0 8px, #b00 8px 16px),
+    repeating-linear-gradient(90deg, transparent 0 8px, rgba(0, 0, 0, 0.18) 8px 16px);
+  background-blend-mode: multiply;
+  border-color: #500;
+}
+.card.back.skin-felt {
+  background: radial-gradient(circle at center, #1d6840 0%, #0e3a23 100%);
+  border-color: #062e18;
+}
+
+/* Shop item rows — used by the cosmetics catalog */
+.shop-window {
+  width: 600px;
+  max-width: 96vw;
+}
+.shop-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0;
+}
+.shop-item-row {
+  display: grid;
+  grid-template-columns: 60px 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  background: var(--panel-light);
+  border: 1px solid var(--line);
+  padding: 6px 10px;
+  border-radius: 2px;
+  min-height: 56px;
+}
+.shop-item-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.shop-item-name {
+  font-size: 12px;
+}
+.shop-item-price {
+  font-size: 11px;
+  font-family: "Lucida Console", monospace;
+  color: var(--text-muted);
+  text-align: right;
+  min-width: 80px;
+}
+.shop-item-actions {
+  text-align: right;
+  min-width: 80px;
+}
