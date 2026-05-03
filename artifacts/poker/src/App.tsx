@@ -69,6 +69,7 @@ function App() {
   const [setup, setSetup] = useState<GameSetup | null>(null);
   const [bank, setBank] = useState<number>(() => getBank());
   const [account, setAccount] = useState<AccountProfile | null>(() => getAccount());
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const unsub = subscribe(() => setBank(getBank()));
@@ -79,7 +80,7 @@ function App() {
     const unsub = subscribeAccount(() => setAccount(getAccount()));
     // On startup, if we have a token, fetch fresh profile (catches changes
     // made on other devices and cleans up invalid tokens).
-    void refreshProfile();
+    void refreshProfile().finally(() => setReady(true));
     return unsub;
   }, []);
 
@@ -96,6 +97,17 @@ function App() {
   function handleStart(s: GameSetup) {
     setSetup(s);
     setScreen(s.style === "holdem" ? "game-holdem" : "game-draw");
+  }
+
+  if (!ready) {
+    return (
+      <div className="launch-screen">
+        <div className="launch-card">
+          <div className="title-text">POKER</div>
+          <div className="subtitle">Loading table...</div>
+        </div>
+      </div>
+    );
   }
 
   return (
