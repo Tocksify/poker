@@ -26,7 +26,6 @@ try {
     stdio: "inherit",
     env: {
       ...process.env,
-      // Tell Vite the base path is / since the desktop server serves from root
       BASE_PATH: "/",
     },
   });
@@ -59,15 +58,11 @@ await build({
   outfile: serverOut,
   sourcemap: false,
   logLevel: "info",
-  // better-sqlite3 has a native .node binary — keep it external so the
-  // packaged app's rebuilt version is used at runtime.
+  // node:sqlite is a built-in Node.js module (Node 22+) — no external package needed
   external: [
-    "better-sqlite3",
     "*.node",
-    // Electron is never needed in the server bundle
     "electron",
   ],
-  // Ensure __dirname and __filename work in the CJS bundle
   define: {
     "process.env.NODE_ENV": '"production"',
   },

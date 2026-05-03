@@ -1,12 +1,12 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import crypto from "node:crypto";
-import Database from "better-sqlite3";
+import { DatabaseSync } from "node:sqlite";
 
 const PBKDF2_ITERS = 120_000;
 const PBKDF2_KEYLEN = 32;
 const PBKDF2_DIGEST = "sha256";
 
-let db: Database.Database;
+let db: DatabaseSync;
 
 interface RawAccount {
   id: number;
@@ -45,8 +45,8 @@ function publicProfile(a: ParsedAccount) {
 }
 
 export function initDb(dbPath: string): void {
-  db = new Database(dbPath);
-  db.pragma("journal_mode = WAL");
+  db = new DatabaseSync(dbPath);
+  db.exec("PRAGMA journal_mode = WAL");
   db.exec(`
     CREATE TABLE IF NOT EXISTS accounts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -160,11 +160,12 @@ router.post("/auth/signup", (req, res) => {
       res.status(409).json({ error: "Username already taken" });
       return;
     }
+    db.prepare(
+      "INSERT INTO accounts (username, password_hash, bank, inventory, equipped) VALUES (?, ?, 0, '[]', '{}')",
+    ).run(trimmed, hashPassword(password as string));
     const result = db
-      .prepare(
-        "INSERT INTO accounts (username, password_hash, bank, inventory, equipped) VALUES (?, ?, 0, '[]', '{}') RETURNING *",
-      )
-      .get(trimmed, hashPassword(password as string)) as RawAccount;
+      .prepare("SELECT * FROM accounts WHERE username = ?")
+      .get(trimmed) as RawAccount;
     const token = newToken();
     db.prepare("INSERT INTO sessions (token, account_id) VALUES (?, ?)").run(
       token,
@@ -259,9 +260,10 @@ router.post("/auth/profile", requireAuth, (req, res) => {
     }
 
     params.push(account.id);
+    db.prepare(`UPDATE accounts SET ${updates.join(", ")} WHERE id = ?`).run(...params);
     const updated = db
-      .prepare(`UPDATE accounts SET ${updates.join(", ")} WHERE id = ? RETURNING *`)
-      .get(...params) as RawAccount;
+      .prepare("SELECT * FROM accounts WHERE id = ?")
+      .get(account.id) as RawAccount;
     res.json({ profile: publicProfile(parseAccount(updated)) });
   } catch (e) {
     console.error("profile update failed", e);

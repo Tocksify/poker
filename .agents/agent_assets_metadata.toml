@@ -5,4 +5,4 @@ generated = []
 id = "LP5BXhsKlJ2bZJVywBEsE"
 uri = "file://poker-desktop.tar.gz"
 type = "unspecified"
-title = "poker-desktop — fully self-contained Windows .exe (extract & build on Windows)"
+title = "poker-desktop — updated (no Visual Studio needed)"

@@ -42,25 +42,22 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Poker"
     },
-    "npmRebuild": true
+    "npmRebuild": false
   },
   "dependencies": {
-    "better-sqlite3": "^11.0.0",
     "cors": "^2.8.5",
     "electron-squirrel-startup": "^1.0.0",
     "express": "^5.1.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^22.0.0",
     "@types/ws": "^8.18.1",
     "esbuild": "^0.25.0",
-    "electron": "^31.0.0",
+    "electron": "^35.0.0",
     "electron-builder": "^24.0.0",
-    "electron-rebuild": "^3.2.9",
     "typescript": "^5.8.0"
   }
 }
