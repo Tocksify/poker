@@ -39,10 +39,7 @@ app.use("/api", authRouter);
 
 if (STATIC_DIR) {
   app.use(express.static(STATIC_DIR));
-  app.get("/", (_req, res) => {
-    res.sendFile(path.join(STATIC_DIR, "index.html"));
-  });
-  app.get(/^(?!\/api).*/, (_req, res) => {
+  app.get("*", (_req, res) => {
     res.sendFile(path.join(STATIC_DIR, "index.html"));
   });
 }
@@ -63,6 +60,7 @@ server.on("listening", () => {
   actualPort = typeof addr === "object" && addr !== null ? addr.port : currentPort;
   console.log(`[poker-desktop] Server listening on port ${actualPort}`);
   console.log(`[poker-desktop] Local IP: ${getLocalIP()}`);
+  console.log(`[poker-desktop] Open UI: ${STATIC_DIR ? `http://localhost:${actualPort}` : "file://frontend/index.html"}`);
   process.stdout.write(`SERVER_READY:${actualPort}\n`);
 });
 

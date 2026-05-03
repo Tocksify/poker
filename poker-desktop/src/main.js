@@ -30,7 +30,6 @@ function startServer() {
   return new Promise((resolve, reject) => {
     const serverBundle = path.join(__dirname, "server-bundle.cjs");
     const sqlitePath = path.join(app.getPath("userData"), "poker.db");
-    const staticDir = "";
 
     serverProcess = spawn(process.execPath, [serverBundle], {
       env: {
@@ -38,7 +37,7 @@ function startServer() {
         ELECTRON_RUN_AS_NODE: "1",
         PORT: String(PREFERRED_PORT),
         SQLITE_DB_PATH: sqlitePath,
-        STATIC_DIR: staticDir,
+        STATIC_DIR: "",
       },
       stdio: ["ignore", "pipe", "pipe"],
     });

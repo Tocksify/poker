@@ -33472,10 +33472,7 @@ app.get("/api/local-info", (_req, res) => res.json({ ip: getLocalIP(), port: act
 app.use("/api", auth_default);
 if (STATIC_DIR) {
   app.use(import_express2.default.static(STATIC_DIR));
-  app.get("/", (_req, res) => {
-    res.sendFile(import_node_path.default.join(STATIC_DIR, "index.html"));
-  });
-  app.get(/^(?!\/api).*/, (_req, res) => {
+  app.get("*", (_req, res) => {
     res.sendFile(import_node_path.default.join(STATIC_DIR, "index.html"));
   });
 }
@@ -33492,6 +33489,7 @@ server.on("listening", () => {
   actualPort = typeof addr === "object" && addr !== null ? addr.port : currentPort;
   console.log(`[poker-desktop] Server listening on port ${actualPort}`);
   console.log(`[poker-desktop] Local IP: ${getLocalIP()}`);
+  console.log(`[poker-desktop] Open UI: ${STATIC_DIR ? `http://localhost:${actualPort}` : "file://frontend/index.html"}`);
   process.stdout.write(`SERVER_READY:${actualPort}
 `);
 });
