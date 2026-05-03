@@ -57,8 +57,8 @@
     "@types/express": "^5.0.6",
     "@types/node": "^22.0.0",
     "@types/ws": "^8.18.1",
-    "electron": "^35.0.0",
-    "electron-builder": "^24.0.0",
+    "electron": "^41.5.0",
+    "electron-builder": "^26.8.1",
     "typescript": "^5.8.0"
   }
 }
