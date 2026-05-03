@@ -4,9 +4,7 @@ const { spawn } = require("child_process");
 const http = require("http");
 
 const PREFERRED_PORT = 7890;
-const PORT_RANGE = 20; // server will try 7890–7909
-
-let resolvedPort = null; // set once server reports SERVER_READY:<port>
+let resolvedPort = null;
 let serverProcess = null;
 let mainWindow = null;
 
@@ -14,21 +12,11 @@ if (require("electron-squirrel-startup")) {
   app.quit();
 }
 
-// ─── Start the bundled server ──────────────────────────────────────────────────
-
 function startServer() {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const serverBundle = path.join(__dirname, "server-bundle.cjs");
     const sqlitePath = path.join(app.getPath("userData"), "poker.db");
-    const staticDir = path.join(
-      process.resourcesPath
-        ? path.join(process.resourcesPath, "frontend")
-        : path.join(__dirname, "..", "resources", "frontend")
-    );
-
-    console.log("[main] Starting server:", serverBundle);
-    console.log("[main] SQLite path:", sqlitePath);
-    console.log("[main] Static dir:", staticDir);
+    const staticDir = path.join(process.resourcesPath || __dirname, "frontend");
 
     serverProcess = spawn(process.execPath, [serverBundle], {
       env: {
@@ -42,17 +30,23 @@ function startServer() {
     });
 
     let stdoutBuf = "";
+    let settled = false;
+    const failTimer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        reject(new Error("Server did not start in time"));
+      }
+    }, 20000);
 
     serverProcess.stdout.on("data", (data) => {
       const text = data.toString();
       stdoutBuf += text;
       process.stdout.write("[server] " + text);
-
-      // Parse SERVER_READY:<port> so we know which port was claimed
       const match = stdoutBuf.match(/SERVER_READY:(\d+)/);
-      if (match && !resolvedPort) {
+      if (match && !settled) {
+        settled = true;
+        clearTimeout(failTimer);
         resolvedPort = parseInt(match[1], 10);
-        console.log("[main] Server ready on port", resolvedPort);
         resolve(resolvedPort);
       }
     });
@@ -62,28 +56,24 @@ function startServer() {
     });
 
     serverProcess.on("exit", (code) => {
-      console.log("[main] Server process exited with code:", code);
       serverProcess = null;
+      if (!settled) {
+        settled = true;
+        clearTimeout(failTimer);
+        reject(new Error(`Server exited early with code ${code}`));
+      }
     });
   });
 }
 
-// Poll until the server responds on /api/healthz at the resolved port
 function waitForServer(port, timeout = 15000) {
   return new Promise((resolve, reject) => {
     const start = Date.now();
     function attempt() {
-      http
-        .get(`http://localhost:${port}/api/healthz`, (res) => {
-          if (res.statusCode === 200) {
-            resolve(true);
-          } else {
-            retry();
-          }
-        })
-        .on("error", () => {
-          retry();
-        });
+      http.get(`http://localhost:${port}/api/healthz`, (res) => {
+        if (res.statusCode === 200) resolve(true);
+        else retry();
+      }).on("error", retry);
     }
     function retry() {
       if (Date.now() - start > timeout) {
@@ -96,41 +86,37 @@ function waitForServer(port, timeout = 15000) {
   });
 }
 
-// ─── Create window ─────────────────────────────────────────────────────────────
-
 function showLoadingScreen(win) {
-  win.webContents.loadURL(
-    `data:text/html;charset=utf-8,${encodeURIComponent(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body {
-            font-family: "Microsoft Sans Serif", Tahoma, sans-serif;
-            background: radial-gradient(ellipse at center, #1a5c32 0%, #0d3319 70%, #061a0d 100%);
-            color: #e8d5a0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            gap: 18px;
-          }
-          h2 { font-size: 22px; letter-spacing: 1px; }
-          p { font-size: 12px; opacity: 0.6; }
-          .dots { font-size: 20px; animation: pulse 1.2s infinite; }
-          @keyframes pulse { 0%,100%{opacity:.3} 50%{opacity:1} }
-        </style>
-      </head>
-      <body>
-        <h2>Poker</h2>
-        <div class="dots">● ● ●</div>
-        <p>Starting local server...</p>
-      </body>
-      </html>
-    `)}`,
-  );
+  win.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          font-family: "Microsoft Sans Serif", Tahoma, sans-serif;
+          background: radial-gradient(ellipse at center, #1a5c32 0%, #0d3319 70%, #061a0d 100%);
+          color: #e8d5a0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+          gap: 18px;
+        }
+        h2 { font-size: 22px; letter-spacing: 1px; }
+        p { font-size: 12px; opacity: 0.6; }
+        .dots { font-size: 20px; animation: pulse 1.2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:.3} 50%{opacity:1} }
+      </style>
+    </head>
+    <body>
+      <h2>Poker</h2>
+      <div class="dots">● ● ●</div>
+      <p>Starting local server...</p>
+    </body>
+    </html>
+  `)}`);
 }
 
 async function createWindow(port) {
@@ -140,7 +126,6 @@ async function createWindow(port) {
     minWidth: 900,
     minHeight: 600,
     title: "Poker",
-    icon: path.join(__dirname, "..", "assets", "icon.ico"),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -151,9 +136,7 @@ async function createWindow(port) {
     show: false,
   });
 
-  mainWindow.once("ready-to-show", () => {
-    mainWindow.show();
-  });
+  mainWindow.once("ready-to-show", () => mainWindow.show());
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (!url.startsWith("http://localhost") && !url.startsWith("http://127.")) {
@@ -164,52 +147,25 @@ async function createWindow(port) {
   });
 
   mainWindow.webContents.on("will-navigate", (event, url) => {
-    if (!url.startsWith("http://") && !url.startsWith("https://")) {
-      event.preventDefault();
-    }
+    if (!url.startsWith("http://") && !url.startsWith("https://")) event.preventDefault();
   });
 
   showLoadingScreen(mainWindow);
 
-  const appUrl = `http://localhost:${port}`;
-
   try {
     await waitForServer(port);
-    mainWindow.loadURL(appUrl);
+    mainWindow.loadURL(`http://localhost:${port}`);
   } catch (err) {
     console.error("[main] Failed to connect to server:", err.message);
-    mainWindow.webContents.loadURL(
-      `data:text/html;charset=utf-8,${encodeURIComponent(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body {
-              font-family: "Microsoft Sans Serif", Tahoma, sans-serif;
-              background: #0d3319; color: #e8d5a0;
-              display: flex; flex-direction: column;
-              align-items: center; justify-content: center;
-              height: 100vh; gap: 12px;
-            }
-            button {
-              padding: 8px 24px; font-family: inherit;
-              background: #1e6640; color: #e8d5a0;
-              border: 1px solid #4a9a6a; cursor: pointer;
-            }
-          </style>
-        </head>
-        <body>
-          <h2>Failed to start server</h2>
-          <p>The server did not respond. Please close the app and reopen it.</p>
-          <button onclick="location.reload()">Retry</button>
-        </body>
-        </html>
-      `)}`,
-    );
+    mainWindow.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
+      <!DOCTYPE html>
+      <html><body style="font-family:Microsoft Sans Serif,Tahoma,sans-serif;background:#0d3319;color:#e8d5a0;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px;">
+        <h2>Failed to start server</h2>
+        <p>Please close the app and reopen it.</p>
+      </body></html>
+    `)}`);
   }
 }
-
-// ─── IPC: navigate to another server (join a friend's game) ───────────────────
 
 ipcMain.handle("navigate-to", (_event, url) => {
   if (mainWindow && typeof url === "string" && url.startsWith("http://")) {
@@ -223,12 +179,15 @@ ipcMain.handle("go-home", () => {
   }
 });
 
-// ─── App lifecycle ─────────────────────────────────────────────────────────────
-
 app.whenReady().then(async () => {
-  // Start server and wait for it to claim a port
-  const port = await startServer();
-  await createWindow(port);
+  try {
+    const port = await startServer();
+    await createWindow(port);
+  } catch (err) {
+    console.error("[main] Server startup failed:", err.message);
+    app.quit();
+    return;
+  }
 
   app.on("activate", async () => {
     if (BrowserWindow.getAllWindows().length === 0) {

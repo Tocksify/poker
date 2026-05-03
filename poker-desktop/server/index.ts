@@ -7,7 +7,7 @@ import authRouter, { initDb } from "./auth";
 import { attachWsServer } from "./wsHandler";
 
 const BASE_PORT = parseInt(process.env["PORT"] ?? "7890", 10);
-const PORT_RANGE = 20; // try 7890–7909
+const PORT_RANGE = 20;
 const SQLITE_DB_PATH = process.env["SQLITE_DB_PATH"] ?? "./poker-desktop.db";
 const STATIC_DIR = process.env["STATIC_DIR"] ?? "";
 
@@ -33,15 +33,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 let actualPort = BASE_PORT;
-
-app.get("/api/healthz", (_req, res) => {
-  res.json({ ok: true });
-});
-
-app.get("/api/local-info", (_req, res) => {
-  res.json({ ip: getLocalIP(), port: actualPort });
-});
-
+app.get("/api/healthz", (_req, res) => res.json({ ok: true }));
+app.get("/api/local-info", (_req, res) => res.json({ ip: getLocalIP(), port: actualPort }));
 app.use("/api", authRouter);
 
 if (STATIC_DIR) {
@@ -55,6 +48,7 @@ const server = createServer(app);
 attachWsServer(server);
 
 let currentPort = BASE_PORT;
+let retryCount = 0;
 
 function tryListen(port: number): void {
   currentPort = port;
@@ -70,19 +64,16 @@ server.on("listening", () => {
 });
 
 server.on("error", (err: NodeJS.ErrnoException) => {
-  if (err.code === "EADDRINUSE") {
+  if (err.code === "EADDRINUSE" && retryCount < PORT_RANGE - 1) {
     const next = currentPort + 1;
-    if (next < BASE_PORT + PORT_RANGE) {
-      console.warn(`[poker-desktop] Port ${currentPort} busy, trying ${next}...`);
-      // Must remove the error listener temporarily and re-attach after close
-      // to avoid double-firing on the close itself
-      server.close(() => tryListen(next));
-    } else {
-      console.error(
-        `[poker-desktop] No free port found in range ${BASE_PORT}–${BASE_PORT + PORT_RANGE - 1}`
-      );
-      process.exit(1);
-    }
+    retryCount += 1;
+    console.warn(`[poker-desktop] Port ${currentPort} busy, trying ${next}...`);
+    setImmediate(() => tryListen(next));
+    return;
+  }
+  if (err.code === "EADDRINUSE") {
+    console.error(`[poker-desktop] No free port found in range ${BASE_PORT}-${BASE_PORT + PORT_RANGE - 1}`);
+    process.exit(1);
     return;
   }
   console.error("[poker-desktop] Server error:", err);
