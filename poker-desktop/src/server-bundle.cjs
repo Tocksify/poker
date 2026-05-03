@@ -33444,7 +33444,8 @@ function attachWsServer(server2) {
 }
 
 // server/index.ts
-var PORT = parseInt(process.env["PORT"] ?? "7890", 10);
+var BASE_PORT = parseInt(process.env["PORT"] ?? "7890", 10);
+var PORT_RANGE = 20;
 var SQLITE_DB_PATH = process.env["SQLITE_DB_PATH"] ?? "./poker-desktop.db";
 var STATIC_DIR = process.env["STATIC_DIR"] ?? "";
 function getLocalIP() {
@@ -33465,11 +33466,12 @@ var app = (0, import_express2.default)();
 app.use((0, import_cors.default)());
 app.use(import_express2.default.json());
 app.use(import_express2.default.urlencoded({ extended: true }));
+var actualPort = BASE_PORT;
 app.get("/api/healthz", (_req, res) => {
   res.json({ ok: true });
 });
 app.get("/api/local-info", (_req, res) => {
-  res.json({ ip: getLocalIP(), port: PORT });
+  res.json({ ip: getLocalIP(), port: actualPort });
 });
 app.use("/api", auth_default);
 if (STATIC_DIR) {
@@ -33480,20 +33482,37 @@ if (STATIC_DIR) {
 }
 var server = (0, import_node_http.createServer)(app);
 attachWsServer(server);
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`[poker-desktop] Server listening on port ${PORT}`);
+var currentPort = BASE_PORT;
+function tryListen(port) {
+  currentPort = port;
+  server.listen(port, "0.0.0.0");
+}
+server.on("listening", () => {
+  const addr = server.address();
+  actualPort = typeof addr === "object" && addr !== null ? addr.port : currentPort;
+  console.log(`[poker-desktop] Server listening on port ${actualPort}`);
   console.log(`[poker-desktop] Local IP: ${getLocalIP()}`);
-  process.stdout.write(`SERVER_READY:${PORT}
+  process.stdout.write(`SERVER_READY:${actualPort}
 `);
 });
 server.on("error", (err) => {
   if (err.code === "EADDRINUSE") {
-    console.error(`[poker-desktop] Port ${PORT} is already in use.`);
-    process.exit(1);
+    const next = currentPort + 1;
+    if (next < BASE_PORT + PORT_RANGE) {
+      console.warn(`[poker-desktop] Port ${currentPort} busy, trying ${next}...`);
+      server.close(() => tryListen(next));
+    } else {
+      console.error(
+        `[poker-desktop] No free port found in range ${BASE_PORT}\u2013${BASE_PORT + PORT_RANGE - 1}`
+      );
+      process.exit(1);
+    }
+    return;
   }
   console.error("[poker-desktop] Server error:", err);
   process.exit(1);
 });
+tryListen(BASE_PORT);
 /*! Bundled license information:
 
 depd/index.js:

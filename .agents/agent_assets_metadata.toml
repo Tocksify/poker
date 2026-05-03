@@ -5,4 +5,4 @@ generated = []
 id = "LP5BXhsKlJ2bZJVywBEsE"
 uri = "file://poker-desktop.tar.gz"
 type = "unspecified"
-title = "poker-desktop — pre-built, no monorepo needed on Windows"
+title = "poker-desktop — auto-finds free port (7890–7909)"

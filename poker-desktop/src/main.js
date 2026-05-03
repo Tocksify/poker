@@ -3,9 +3,10 @@ const path = require("path");
 const { spawn } = require("child_process");
 const http = require("http");
 
-const APP_PORT = 7890;
-const APP_URL = `http://localhost:${APP_PORT}`;
+const PREFERRED_PORT = 7890;
+const PORT_RANGE = 20; // server will try 7890–7909
 
+let resolvedPort = null; // set once server reports SERVER_READY:<port>
 let serverProcess = null;
 let mainWindow = null;
 
@@ -16,50 +17,64 @@ if (require("electron-squirrel-startup")) {
 // ─── Start the bundled server ──────────────────────────────────────────────────
 
 function startServer() {
-  const serverBundle = path.join(__dirname, "server-bundle.cjs");
-  const sqlitePath = path.join(app.getPath("userData"), "poker.db");
-  const staticDir = path.join(__dirname, "..", "resources", "frontend");
+  return new Promise((resolve) => {
+    const serverBundle = path.join(__dirname, "server-bundle.cjs");
+    const sqlitePath = path.join(app.getPath("userData"), "poker.db");
+    const staticDir = path.join(
+      process.resourcesPath
+        ? path.join(process.resourcesPath, "frontend")
+        : path.join(__dirname, "..", "resources", "frontend")
+    );
 
-  console.log("[main] Starting server:", serverBundle);
-  console.log("[main] SQLite path:", sqlitePath);
-  console.log("[main] Static dir:", staticDir);
+    console.log("[main] Starting server:", serverBundle);
+    console.log("[main] SQLite path:", sqlitePath);
+    console.log("[main] Static dir:", staticDir);
 
-  // Use Electron's own binary to run the server with ELECTRON_RUN_AS_NODE=1
-  serverProcess = spawn(process.execPath, [serverBundle], {
-    env: {
-      ...process.env,
-      ELECTRON_RUN_AS_NODE: "1",
-      PORT: String(APP_PORT),
-      SQLITE_DB_PATH: sqlitePath,
-      STATIC_DIR: staticDir,
-      // Help require() find native modules in the packaged app
-      NODE_PATH: path.join(process.resourcesPath || __dirname, "app", "node_modules"),
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+    serverProcess = spawn(process.execPath, [serverBundle], {
+      env: {
+        ...process.env,
+        ELECTRON_RUN_AS_NODE: "1",
+        PORT: String(PREFERRED_PORT),
+        SQLITE_DB_PATH: sqlitePath,
+        STATIC_DIR: staticDir,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
 
-  serverProcess.stdout.on("data", (data) => {
-    const text = data.toString();
-    process.stdout.write("[server] " + text);
-  });
+    let stdoutBuf = "";
 
-  serverProcess.stderr.on("data", (data) => {
-    process.stderr.write("[server] " + data.toString());
-  });
+    serverProcess.stdout.on("data", (data) => {
+      const text = data.toString();
+      stdoutBuf += text;
+      process.stdout.write("[server] " + text);
 
-  serverProcess.on("exit", (code) => {
-    console.log("[main] Server process exited with code:", code);
-    serverProcess = null;
+      // Parse SERVER_READY:<port> so we know which port was claimed
+      const match = stdoutBuf.match(/SERVER_READY:(\d+)/);
+      if (match && !resolvedPort) {
+        resolvedPort = parseInt(match[1], 10);
+        console.log("[main] Server ready on port", resolvedPort);
+        resolve(resolvedPort);
+      }
+    });
+
+    serverProcess.stderr.on("data", (data) => {
+      process.stderr.write("[server] " + data.toString());
+    });
+
+    serverProcess.on("exit", (code) => {
+      console.log("[main] Server process exited with code:", code);
+      serverProcess = null;
+    });
   });
 }
 
-// Poll until the server responds on /api/healthz
-function waitForServer(timeout = 15000) {
+// Poll until the server responds on /api/healthz at the resolved port
+function waitForServer(port, timeout = 15000) {
   return new Promise((resolve, reject) => {
     const start = Date.now();
     function attempt() {
       http
-        .get(`${APP_URL}/api/healthz`, (res) => {
+        .get(`http://localhost:${port}/api/healthz`, (res) => {
           if (res.statusCode === 200) {
             resolve(true);
           } else {
@@ -72,10 +87,10 @@ function waitForServer(timeout = 15000) {
     }
     function retry() {
       if (Date.now() - start > timeout) {
-        reject(new Error("Server did not start in time"));
+        reject(new Error(`Server on port ${port} did not respond in time`));
         return;
       }
-      setTimeout(attempt, 250);
+      setTimeout(attempt, 300);
     }
     attempt();
   });
@@ -118,7 +133,7 @@ function showLoadingScreen(win) {
   );
 }
 
-async function createWindow() {
+async function createWindow(port) {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -140,7 +155,6 @@ async function createWindow() {
     mainWindow.show();
   });
 
-  // Open external links in browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (!url.startsWith("http://localhost") && !url.startsWith("http://127.")) {
       shell.openExternal(url);
@@ -149,21 +163,21 @@ async function createWindow() {
     return { action: "allow" };
   });
 
-  // Allow navigation to any local IP (for joining a friend's server)
   mainWindow.webContents.on("will-navigate", (event, url) => {
-    // Block navigation away from http (e.g. to file://)
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
       event.preventDefault();
     }
   });
 
-  // Show loading screen while server starts
   showLoadingScreen(mainWindow);
 
+  const appUrl = `http://localhost:${port}`;
+
   try {
-    await waitForServer();
-    mainWindow.loadURL(APP_URL);
-  } catch {
+    await waitForServer(port);
+    mainWindow.loadURL(appUrl);
+  } catch (err) {
+    console.error("[main] Failed to connect to server:", err.message);
     mainWindow.webContents.loadURL(
       `data:text/html;charset=utf-8,${encodeURIComponent(`
         <!DOCTYPE html>
@@ -186,7 +200,7 @@ async function createWindow() {
         </head>
         <body>
           <h2>Failed to start server</h2>
-          <p>Port ${APP_PORT} may already be in use. Close other instances and try again.</p>
+          <p>The server did not respond. Please close the app and reopen it.</p>
           <button onclick="location.reload()">Retry</button>
         </body>
         </html>
@@ -204,20 +218,21 @@ ipcMain.handle("navigate-to", (_event, url) => {
 });
 
 ipcMain.handle("go-home", () => {
-  if (mainWindow) {
-    mainWindow.loadURL(APP_URL);
+  if (mainWindow && resolvedPort) {
+    mainWindow.loadURL(`http://localhost:${resolvedPort}`);
   }
 });
 
 // ─── App lifecycle ─────────────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
-  startServer();
-  await createWindow();
+  // Start server and wait for it to claim a port
+  const port = await startServer();
+  await createWindow(port);
 
   app.on("activate", async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      await createWindow();
+      await createWindow(resolvedPort || PREFERRED_PORT);
     }
   });
 });
