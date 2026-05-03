@@ -11,7 +11,7 @@
 
 import { build } from "esbuild";
 import { execSync } from "child_process";
-import { mkdirSync, rmSync } from "fs";
+import { copyFileSync, mkdirSync, rmSync, readdirSync, statSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -34,14 +34,27 @@ try {
   process.exit(1);
 }
 
+function copyRecursive(source, target) {
+  const stats = statSync(source);
+  if (stats.isDirectory()) {
+    mkdirSync(target, { recursive: true });
+    for (const entry of readdirSync(source)) {
+      copyRecursive(path.join(source, entry), path.join(target, entry));
+    }
+    return;
+  }
+  mkdirSync(path.dirname(target), { recursive: true });
+  copyFileSync(source, target);
+}
+
 // Copy the built frontend to resources/frontend/
-const frontendDist = path.join(root, "artifacts", "poker", "dist", "public");
+const frontendDist = path.join(root, "artifacts", "poker", "dist");
 const frontendOut = path.join(__dirname, "resources", "frontend");
 
 rmSync(frontendOut, { recursive: true, force: true });
 mkdirSync(frontendOut, { recursive: true });
 
-execSync(`cp -r "${frontendDist}/." "${frontendOut}/"`, { stdio: "inherit" });
+copyRecursive(frontendDist, frontendOut);
 console.log(`[build] Frontend copied to ${frontendOut}`);
 
 // ─── Step 2: Bundle the desktop server ────────────────────────────────────────
