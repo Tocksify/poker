@@ -1,0 +1,68 @@
+name: Deploy Poker Frontend to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "artifacts/poker/src/**"
+      - "artifacts/poker/index.html"
+      - "artifacts/poker/vite.config.ts"
+      - "artifacts/poker/package.json"
+      - ".github/workflows/deploy-frontend.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend for GitHub Pages
+        env:
+          # Your Render backend URL — set this in repo Settings → Secrets → Actions
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          # GitHub Pages base path: /your-repo-name/
+          # This is set automatically from the repo name.
+          BASE_PATH: /${{ github.event.repository.name }}/
+          NODE_ENV: production
+        run: pnpm --filter @workspace/poker run build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: artifacts/poker/dist/public
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,14 +1,13 @@
 {
   "name": "poker-electron",
   "version": "1.0.0",
-  "description": "Poker desktop wrapper for the hosted web app",
+  "description": "Poker desktop wrapper — loads the hosted GitHub Pages frontend",
   "author": "Poker",
   "private": true,
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win --x64",
-    "build:web": "cd .. && pnpm build"
+    "build": "electron-builder --win --x64"
   },
   "dependencies": {
   },
@@ -25,9 +24,11 @@
     },
     "files": [
       "main.cjs",
-      "preload.cjs",
-      "renderer/**/*"
+      "preload.cjs"
     ],
+    "extraMetadata": {
+      "main": "main.cjs"
+    },
     "win": {
       "target": [
         {
