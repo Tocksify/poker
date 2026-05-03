@@ -1,0 +1,36 @@
+~/.../poker/electron$ npm run build
+
+> poker-electron@1.0.0 build
+> electron-builder --win --x64
+
+  • electron-builder  version=26.8.1 os=6.14.11
+  • loaded configuration  file=package.json ("build" field)
+  • author is missed in the package.json  appPackageFile=/home/runner/workspace/artifacts/poker/electron/package.json
+  • writing effective config  file=dist/builder-effective-config.yaml
+  • executing @electron/rebuild  electronVersion=41.5.0 arch=x64 buildFromSource=false workspaceRoot=/home/runner/workspace/artifacts/poker/electron projectDir=./ appDir=./
+  • installing native dependencies  arch=x64
+  • completed installing native dependencies
+  • packaging       platform=win32 arch=x64 electron=41.5.0 appOutDir=dist/win-unpacked
+  • downloading     url=https://github.com/electron/electron/releases/download/v41.5.0/electron-v41.5.0-win32-x64.zip size=143 MB parts=8
+  • downloaded      url=https://github.com/electron/electron/releases/download/v41.5.0/electron-v41.5.0-win32-x64.zip duration=885ms
+  • searching for node modules  pm=npm searchDir=/home/runner/workspace/artifacts/poker/electron
+(node:12106) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+  • searching for node modules  pm=traversal searchDir=/home/runner/workspace/artifacts/poker/electron
+  • using manual traversal of node_modules to build dependency tree
+  • no node modules returned while searching directories  searchDirectories=[""]
+  • updating asar integrity executable resource  executablePath=dist/win-unpacked/Poker.exe
+  • default Electron icon is used  reason=application icon is not set
+  • downloading     url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z size=5.6 MB parts=1
+  • downloaded      url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z duration=308ms
+  ⨯ wine is required, please see https://electron.build/multi-platform-build#linux  
+  ⨯ /home/runner/workspace/artifacts/poker/electron/node_modules/app-builder-bin/linux/x64/app-builder process failed ERR_ELECTRON_BUILDER_CANNOT_EXECUTE
+Exit code:
+1  failedTask=build stackTrace=Error: /home/runner/workspace/artifacts/poker/electron/node_modules/app-builder-bin/linux/x64/app-builder process failed ERR_ELECTRON_BUILDER_CANNOT_EXECUTE
+Exit code:
+1
+    at ChildProcess.<anonymous> (/home/runner/workspace/artifacts/poker/electron/node_modules/builder-util/src/util.ts:272:14)
+    at Object.onceWrapper (node:events:623:26)
+    at ChildProcess.emit (node:events:508:28)
+    at maybeClose (node:internal/child_process:1101:16)
+    at Process.ChildProcess._handle.onexit (node:internal/child_process:305:5)
