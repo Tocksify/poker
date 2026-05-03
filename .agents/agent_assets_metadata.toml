@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "LP5BXhsKlJ2bZJVywBEsE"
+uri = "file://poker-desktop.tar.gz"
+type = "unspecified"
+title = "poker-desktop (Electron project — extract & build on Windows)"
