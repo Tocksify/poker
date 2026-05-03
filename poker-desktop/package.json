@@ -1,12 +1,14 @@
 {
   "name": "poker-desktop",
   "version": "1.0.0",
-  "description": "Poker desktop client for Windows",
+  "description": "Poker desktop client — fully self-contained with local server and database",
   "main": "src/main.js",
+  "private": true,
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win --x64",
-    "build:dir": "electron-builder --win --x64 --dir"
+    "build": "node build.mjs && electron-builder --win --x64",
+    "build:dir": "node build.mjs && electron-builder --win --x64 --dir",
+    "build:server": "node build.mjs"
   },
   "build": {
     "appId": "com.poker.desktop",
@@ -14,6 +16,16 @@
     "directories": {
       "output": "dist"
     },
+    "files": [
+      "src/**/*",
+      "assets/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/frontend/",
+        "to": "frontend/"
+      }
+    ],
     "win": {
       "target": [
         {
@@ -29,13 +41,26 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Poker"
-    }
+    },
+    "npmRebuild": true
   },
   "dependencies": {
-    "electron-squirrel-startup": "^1.0.0"
+    "better-sqlite3": "^11.0.0",
+    "cors": "^2.8.5",
+    "electron-squirrel-startup": "^1.0.0",
+    "express": "^5.1.0",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.1",
+    "esbuild": "^0.25.0",
     "electron": "^31.0.0",
-    "electron-builder": "^24.0.0"
+    "electron-builder": "^24.0.0",
+    "electron-rebuild": "^3.2.9",
+    "typescript": "^5.8.0"
   }
 }

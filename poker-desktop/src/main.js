@@ -1,22 +1,127 @@
-const { app, BrowserWindow, shell } = require("electron");
+const { app, BrowserWindow, shell, ipcMain } = require("electron");
 const path = require("path");
+const { spawn } = require("child_process");
+const http = require("http");
 
-// ─── IMPORTANT ───────────────────────────────────────────────────────────────
-// Set this to your deployed Replit URL after you publish the app.
-// It should look like: https://poker.yourusername.replit.app
-// Until you deploy, you can test with the dev URL below.
-const APP_URL = "https://YOUR-DEPLOYED-URL.replit.app";
-// ─────────────────────────────────────────────────────────────────────────────
+const APP_PORT = 7890;
+const APP_URL = `http://localhost:${APP_PORT}`;
 
-// Handle Windows installer events
+let serverProcess = null;
+let mainWindow = null;
+
 if (require("electron-squirrel-startup")) {
   app.quit();
 }
 
-function createWindow() {
-  const win = new BrowserWindow({
+// ─── Start the bundled server ──────────────────────────────────────────────────
+
+function startServer() {
+  const serverBundle = path.join(__dirname, "server-bundle.cjs");
+  const sqlitePath = path.join(app.getPath("userData"), "poker.db");
+  const staticDir = path.join(__dirname, "..", "resources", "frontend");
+
+  console.log("[main] Starting server:", serverBundle);
+  console.log("[main] SQLite path:", sqlitePath);
+  console.log("[main] Static dir:", staticDir);
+
+  // Use Electron's own binary to run the server with ELECTRON_RUN_AS_NODE=1
+  serverProcess = spawn(process.execPath, [serverBundle], {
+    env: {
+      ...process.env,
+      ELECTRON_RUN_AS_NODE: "1",
+      PORT: String(APP_PORT),
+      SQLITE_DB_PATH: sqlitePath,
+      STATIC_DIR: staticDir,
+      // Help require() find native modules in the packaged app
+      NODE_PATH: path.join(process.resourcesPath || __dirname, "app", "node_modules"),
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  serverProcess.stdout.on("data", (data) => {
+    const text = data.toString();
+    process.stdout.write("[server] " + text);
+  });
+
+  serverProcess.stderr.on("data", (data) => {
+    process.stderr.write("[server] " + data.toString());
+  });
+
+  serverProcess.on("exit", (code) => {
+    console.log("[main] Server process exited with code:", code);
+    serverProcess = null;
+  });
+}
+
+// Poll until the server responds on /api/healthz
+function waitForServer(timeout = 15000) {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    function attempt() {
+      http
+        .get(`${APP_URL}/api/healthz`, (res) => {
+          if (res.statusCode === 200) {
+            resolve(true);
+          } else {
+            retry();
+          }
+        })
+        .on("error", () => {
+          retry();
+        });
+    }
+    function retry() {
+      if (Date.now() - start > timeout) {
+        reject(new Error("Server did not start in time"));
+        return;
+      }
+      setTimeout(attempt, 250);
+    }
+    attempt();
+  });
+}
+
+// ─── Create window ─────────────────────────────────────────────────────────────
+
+function showLoadingScreen(win) {
+  win.webContents.loadURL(
+    `data:text/html;charset=utf-8,${encodeURIComponent(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            font-family: "Microsoft Sans Serif", Tahoma, sans-serif;
+            background: radial-gradient(ellipse at center, #1a5c32 0%, #0d3319 70%, #061a0d 100%);
+            color: #e8d5a0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            gap: 18px;
+          }
+          h2 { font-size: 22px; letter-spacing: 1px; }
+          p { font-size: 12px; opacity: 0.6; }
+          .dots { font-size: 20px; animation: pulse 1.2s infinite; }
+          @keyframes pulse { 0%,100%{opacity:.3} 50%{opacity:1} }
+        </style>
+      </head>
+      <body>
+        <h2>Poker</h2>
+        <div class="dots">● ● ●</div>
+        <p>Starting local server...</p>
+      </body>
+      </html>
+    `)}`,
+  );
+}
+
+async function createWindow() {
+  mainWindow = new BrowserWindow({
     width: 1280,
-    height: 800,
+    height: 820,
     minWidth: 900,
     minHeight: 600,
     title: "Poker",
@@ -24,29 +129,42 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      // Allow localStorage and all web APIs to work normally
-      partition: "persist:poker",
+      preload: path.join(__dirname, "preload.js"),
+      partition: "persist:poker-desktop",
     },
-    backgroundColor: "#1a4a2a",
+    backgroundColor: "#0d3319",
     show: false,
   });
 
-  // Show window once ready to avoid white flash
-  win.once("ready-to-show", () => {
-    win.show();
+  mainWindow.once("ready-to-show", () => {
+    mainWindow.show();
   });
 
-  // Open external links in the system browser, not a new Electron window
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
-    return { action: "deny" };
+  // Open external links in browser
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (!url.startsWith("http://localhost") && !url.startsWith("http://127.")) {
+      shell.openExternal(url);
+      return { action: "deny" };
+    }
+    return { action: "allow" };
   });
 
-  win.loadURL(APP_URL);
+  // Allow navigation to any local IP (for joining a friend's server)
+  mainWindow.webContents.on("will-navigate", (event, url) => {
+    // Block navigation away from http (e.g. to file://)
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      event.preventDefault();
+    }
+  });
 
-  // Show a friendly error page if the server is unreachable
-  win.webContents.on("did-fail-load", (_event, errorCode, errorDescription) => {
-    win.webContents.loadURL(
+  // Show loading screen while server starts
+  showLoadingScreen(mainWindow);
+
+  try {
+    await waitForServer();
+    mainWindow.loadURL(APP_URL);
+  } catch {
+    mainWindow.webContents.loadURL(
       `data:text/html;charset=utf-8,${encodeURIComponent(`
         <!DOCTYPE html>
         <html>
@@ -54,50 +172,67 @@ function createWindow() {
           <style>
             body {
               font-family: "Microsoft Sans Serif", Tahoma, sans-serif;
-              background: #1a4a2a;
-              color: #e8d5a0;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              justify-content: center;
-              height: 100vh;
-              margin: 0;
-              gap: 16px;
+              background: #0d3319; color: #e8d5a0;
+              display: flex; flex-direction: column;
+              align-items: center; justify-content: center;
+              height: 100vh; gap: 12px;
             }
-            h2 { margin: 0; }
-            p { margin: 0; opacity: 0.75; font-size: 13px; }
             button {
-              margin-top: 8px;
-              padding: 8px 24px;
-              font-family: inherit;
-              font-size: 13px;
-              background: #2d7a4a;
-              color: #e8d5a0;
-              border: 1px solid #4a9a6a;
-              cursor: pointer;
+              padding: 8px 24px; font-family: inherit;
+              background: #1e6640; color: #e8d5a0;
+              border: 1px solid #4a9a6a; cursor: pointer;
             }
           </style>
         </head>
         <body>
-          <h2>Cannot connect to server</h2>
-          <p>Check your internet connection and try again.</p>
-          <p style="font-size:11px;opacity:0.5;">${errorDescription} (${errorCode})</p>
-          <button onclick="window.location.reload()">Retry</button>
+          <h2>Failed to start server</h2>
+          <p>Port ${APP_PORT} may already be in use. Close other instances and try again.</p>
+          <button onclick="location.reload()">Retry</button>
         </body>
         </html>
-      `)}`
+      `)}`,
     );
-  });
+  }
 }
 
-app.whenReady().then(() => {
-  createWindow();
+// ─── IPC: navigate to another server (join a friend's game) ───────────────────
 
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+ipcMain.handle("navigate-to", (_event, url) => {
+  if (mainWindow && typeof url === "string" && url.startsWith("http://")) {
+    mainWindow.loadURL(url);
+  }
+});
+
+ipcMain.handle("go-home", () => {
+  if (mainWindow) {
+    mainWindow.loadURL(APP_URL);
+  }
+});
+
+// ─── App lifecycle ─────────────────────────────────────────────────────────────
+
+app.whenReady().then(async () => {
+  startServer();
+  await createWindow();
+
+  app.on("activate", async () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      await createWindow();
+    }
   });
 });
 
 app.on("window-all-closed", () => {
+  if (serverProcess) {
+    serverProcess.kill("SIGTERM");
+    serverProcess = null;
+  }
   app.quit();
+});
+
+app.on("before-quit", () => {
+  if (serverProcess) {
+    serverProcess.kill("SIGTERM");
+    serverProcess = null;
+  }
 });

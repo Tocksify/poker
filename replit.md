@@ -9,6 +9,18 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **poker** — A poker game (Texas Hold'em + Five Card Draw) with a flat green-felt UI (MS Sans Serif font kept). Single-player vs bots and online multiplayer rooms with invite codes.
 - **api-server** — Express + WebSocket server. Hosts the online poker room manager (`src/lib/rooms.ts`) and broadcasts authoritative server-side game state to clients via WS at `/ws` (also accepts `/api/ws` for proxy passthrough). Engine code is shared by copying `src/poker/{cards,holdem,draw}.ts` from the poker artifact.
 
+## Desktop App (poker-desktop/)
+
+`poker-desktop/` is a standalone Electron project that packages the game as a fully self-contained Windows `.exe`. It does NOT import from the pnpm workspace — it is a separate npm project built independently on the user's Windows machine.
+
+- **Server**: `poker-desktop/server/` — standalone Express+WebSocket server written in TypeScript. Imports game logic from `../../artifacts/api-server/src/` (rooms, holdem, draw, cards) at build time via esbuild. Auth uses `better-sqlite3` raw SQL (no Drizzle) — same PBKDF2 password hashing, same `/api/auth/*` endpoints.
+- **Database**: SQLite via `better-sqlite3`, stored in `%APPDATA%\poker-desktop\poker.db`. No PostgreSQL needed.
+- **Frontend**: The built React frontend (`artifacts/poker/dist/public/`) is copied to `resources/frontend/` and served as static files by Express.
+- **Electron main** (`src/main.js`): Spawns `src/server-bundle.cjs` using `process.execPath` with `ELECTRON_RUN_AS_NODE=1` (uses Electron's own Node.js, so native modules rebuilt for Electron work). Polls `/api/healthz` then loads `http://localhost:7890`.
+- **Multiplayer**: Server listens on `0.0.0.0:7890`. Host shares their LAN IP. Friends open the app, enter the host's IP in "Join a Friend's Game", and the Electron window navigates there. Accounts are per-server (local SQLite on each host).
+- **Build**: `node build.mjs` → builds frontend + bundles server. Then `electron-builder` packages the `.exe`. `npmRebuild: true` recompiles `better-sqlite3` for Electron's Node ABI.
+- **Archive**: `poker-desktop.tar.gz` in workspace root — download, extract on Windows, follow README.
+
 ## Online Poker Notes
 
 - Frontend talks to backend at `wss://<host>/api/ws` (proxied by the path-based router to api-server).

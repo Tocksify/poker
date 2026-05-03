@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { Screen } from "@/App";
 import { Window } from "@/components/Window";
 import { usePokerSocket } from "@/lib/wsClient";
@@ -10,15 +10,54 @@ interface Props {
   account: AccountProfile | null;
 }
 
+// Detect if running inside the Electron desktop app
+const isDesktop =
+  typeof window !== "undefined" &&
+  !!(window as unknown as { electronAPI?: { isDesktop?: boolean } }).electronAPI
+    ?.isDesktop;
+
+interface LocalInfo {
+  ip: string;
+  port: number;
+}
+
 export function OnlineHome({ onNavigate, bank, account }: Props) {
   void bank;
   const ws = usePokerSocket();
+  const [joinIP, setJoinIP] = useState("");
+  const [localInfo, setLocalInfo] = useState<LocalInfo | null>(null);
 
   useEffect(() => {
     if (!account) return;
     if (ws.lobby && ws.lobby.status === "lobby") onNavigate("online-lobby");
     else if (ws.game) onNavigate("online-game");
   }, [ws.lobby, ws.game, onNavigate, account]);
+
+  // Fetch local IP from the desktop server
+  useEffect(() => {
+    if (!isDesktop) return;
+    fetch("/api/local-info")
+      .then((r) => r.json())
+      .then((d: LocalInfo) => setLocalInfo(d))
+      .catch(() => {});
+  }, []);
+
+  function handleJoin() {
+    const raw = joinIP.trim();
+    if (!raw) return;
+    // Accept "192.168.1.5" or "192.168.1.5:7890"
+    const url = raw.includes(":") ? `http://${raw}` : `http://${raw}:7890`;
+    const api = (
+      window as unknown as {
+        electronAPI?: { navigateTo?: (u: string) => void };
+      }
+    ).electronAPI;
+    if (api?.navigateTo) {
+      api.navigateTo(url);
+    } else {
+      window.location.href = url;
+    }
+  }
 
   if (!account) {
     return (
@@ -61,7 +100,44 @@ export function OnlineHome({ onNavigate, bank, account }: Props) {
       onClose={() => onNavigate("menu")}
     >
       <div style={{ textAlign: "center", padding: "12px 0" }}>
-        <div style={{ marginBottom: 18, fontSize: 14 }}>
+
+        {/* Desktop host info banner */}
+        {isDesktop && localInfo && (
+          <div
+            style={{
+              background: "rgba(0,0,0,0.35)",
+              border: "1px solid var(--line)",
+              borderRadius: 2,
+              padding: "10px 14px",
+              marginBottom: 16,
+              fontSize: 12,
+              textAlign: "left",
+            }}
+          >
+            <div style={{ marginBottom: 4, fontWeight: "bold", color: "var(--gold)" }}>
+              You are hosting on this machine
+            </div>
+            <div className="muted">
+              Friends on the same network can join at:
+            </div>
+            <div
+              style={{
+                fontFamily: "'Lucida Console', monospace",
+                fontSize: 13,
+                margin: "6px 0 4px",
+                color: "#8fe0a0",
+              }}
+            >
+              {localInfo.ip}:{localInfo.port}
+            </div>
+            <div className="muted" style={{ fontSize: 11 }}>
+              They open Poker, go to Online Play, and paste that address.
+            </div>
+          </div>
+        )}
+
+        {/* Standard room buttons */}
+        <div style={{ marginBottom: 16, fontSize: 14 }}>
           Play with friends or family. Create a room to host a table, or join
           one with an invite code.
         </div>
@@ -89,6 +165,42 @@ export function OnlineHome({ onNavigate, bank, account }: Props) {
             Join with Invite Code
           </button>
         </div>
+
+        {/* Desktop: join a friend's server by IP */}
+        {isDesktop && (
+          <div
+            style={{
+              marginTop: 20,
+              borderTop: "1px solid var(--line)",
+              paddingTop: 16,
+            }}
+          >
+            <div style={{ fontSize: 12, marginBottom: 8, color: "var(--gold)" }}>
+              Join a friend's game
+            </div>
+            <div className="muted" style={{ fontSize: 11, marginBottom: 10 }}>
+              Enter the IP address shown on the host's screen.
+            </div>
+            <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+              <input
+                type="text"
+                className="text-input"
+                placeholder="192.168.1.5  or  192.168.1.5:7890"
+                value={joinIP}
+                onChange={(e) => setJoinIP(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleJoin()}
+                style={{ width: 220, fontSize: 12 }}
+              />
+              <button
+                className="btn btn-primary"
+                onClick={handleJoin}
+                disabled={!joinIP.trim()}
+              >
+                Connect
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="dim" style={{ marginTop: 16, fontSize: 11 }}>
           {status === "connecting" && "Connecting to server..."}
