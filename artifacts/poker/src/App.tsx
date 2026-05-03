@@ -69,7 +69,6 @@ function App() {
   const [setup, setSetup] = useState<GameSetup | null>(null);
   const [bank, setBank] = useState<number>(() => getBank());
   const [account, setAccount] = useState<AccountProfile | null>(() => getAccount());
-  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const unsub = subscribe(() => setBank(getBank()));
@@ -80,7 +79,6 @@ function App() {
     const unsub = subscribeAccount(() => setAccount(getAccount()));
     // On startup, if we have a token, fetch fresh profile (catches changes
     // made on other devices and cleans up invalid tokens).
-    setReady(true);
     void refreshProfile();
     return unsub;
   }, []);
@@ -102,15 +100,6 @@ function App() {
 
   return (
     <div className="app-root">
-      {!ready && (
-        <div className="launch-screen">
-          <div className="launch-card">
-            <div className="title-text">POKER</div>
-            <div className="subtitle">Loading table...</div>
-          </div>
-        </div>
-      )}
-      <div className="app-shell">
       {screen === "menu" && (
         <MainMenu
           onNavigate={setScreen}
@@ -172,7 +161,6 @@ function App() {
           onExit={setScreen}
         />
       )}
-      </div>
 
       <div className="corner-label left">Rocco Albán Poker</div>
       <div className="corner-label right">Angel has a chili ring</div>

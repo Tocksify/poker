@@ -45,25 +45,6 @@ body {
   min-height: 100vh;
 }
 
-.launch-screen {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  background:
-    radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-dark) 70%, var(--felt-darker) 100%);
-}
-
-.launch-card {
-  text-align: center;
-  padding: 24px 28px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
-  border-radius: 6px;
-}
-
 .app-root {
   flex: 1;
   display: flex;
