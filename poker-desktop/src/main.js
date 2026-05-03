@@ -7,6 +7,7 @@ const PREFERRED_PORT = 7890;
 let resolvedPort = null;
 let serverProcess = null;
 let mainWindow = null;
+let debugWindow = null;
 
 if (require("electron-squirrel-startup")) {
   app.quit();
@@ -132,6 +133,34 @@ function showLoadingScreen(win) {
   `)}`);
 }
 
+function showDebugWindow(title, message, details = "") {
+  if (debugWindow) {
+    debugWindow.close();
+  }
+  debugWindow = new BrowserWindow({
+    width: 980,
+    height: 720,
+    title: "Poker Startup Error",
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+  debugWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
+    <!DOCTYPE html>
+    <html>
+    <body style="font-family:Segoe UI,Arial,sans-serif;background:#111;color:#f3d7a3;padding:24px;line-height:1.5">
+      <h1 style="color:#ffb4a8;margin:0 0 12px">${title}</h1>
+      <pre style="white-space:pre-wrap;background:#1b1b1b;padding:16px;border-radius:8px;border:1px solid #333">${message}</pre>
+      <pre style="white-space:pre-wrap;background:#1b1b1b;padding:16px;border-radius:8px;border:1px solid #333">${details}</pre>
+    </body>
+    </html>
+  `)}`);
+  debugWindow.on("closed", () => {
+    debugWindow = null;
+  });
+}
+
 async function createWindow(port) {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -169,11 +198,13 @@ async function createWindow(port) {
     await waitForServer(port);
     mainWindow.loadURL(`http://localhost:${port}`);
   } catch (err) {
-    console.error("[main] Failed to connect to server:", err.message);
+    console.error("[main] Failed to connect to server:", err);
+    showDebugWindow("Server connection failed", err.message, String(err.stack || ""));
     try {
       await mainWindow.loadURL(getFrontendBaseUrl());
     } catch (fileErr) {
-      console.error("[main] Failed to load local frontend:", fileErr.message);
+      console.error("[main] Failed to load local frontend:", fileErr);
+      showDebugWindow("Frontend load failed", fileErr.message, String(fileErr.stack || ""));
       mainWindow.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
         <!DOCTYPE html>
         <html>
@@ -204,7 +235,8 @@ app.whenReady().then(async () => {
     const port = await startServer();
     await createWindow(port);
   } catch (err) {
-    console.error("[main] Server startup failed:", err.message);
+    console.error("[main] Server startup failed:", err);
+    showDebugWindow("Server startup failed", err.message, String(err.stack || ""));
     app.quit();
     return;
   }
