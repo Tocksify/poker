@@ -12,6 +12,7 @@ const artifactDir = path.dirname(fileURLToPath(import.meta.url));
 
 async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
+  const fs = await import("node:fs/promises");
   await rm(distDir, { recursive: true, force: true });
 
   await esbuild({
@@ -118,6 +119,10 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     `,
     },
   });
+
+  const drizzleDir = path.resolve(artifactDir, "../../lib/db/drizzle");
+  const destDrizzleDir = path.resolve(distDir, "drizzle");
+  await fs.cp(drizzleDir, destDrizzleDir, { recursive: true });
 }
 
 buildAll().catch((err) => {
