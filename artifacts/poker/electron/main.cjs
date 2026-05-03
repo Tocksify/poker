@@ -1,8 +1,6 @@
 const { app, BrowserWindow } = require("electron");
 const path = require("path");
 
-const START_URL = process.env.POKER_START_URL;
-
 let win;
 
 function createWindow() {
@@ -12,7 +10,8 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     title: "Poker",
-    backgroundColor: "#0d3319",
+    backgroundColor: "#0a6b2c",
+    show: false,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -21,12 +20,10 @@ function createWindow() {
   });
 
   win.removeMenu();
-  const localIndex = path.join(__dirname, "renderer", "index.html");
-  if (START_URL) {
-    win.loadURL(START_URL).catch(() => win.loadFile(localIndex));
-    return;
-  }
-  win.loadFile(localIndex);
+  win.loadFile(path.join(__dirname, "renderer", "index.html"));
+  win.once("ready-to-show", () => {
+    if (win) win.show();
+  });
 }
 
 app.whenReady().then(createWindow);
