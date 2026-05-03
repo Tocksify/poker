@@ -1,5 +1,7 @@
 {
   "name": "poker-electron",
+  "version": "1.0.0",
+  "description": "Poker desktop wrapper for the hosted web app",
   "private": true,
   "main": "main.cjs",
   "scripts": {
@@ -7,9 +9,9 @@
     "build": "electron-builder --win --x64"
   },
   "dependencies": {
-    "electron": "^41.5.0"
   },
   "devDependencies": {
+    "electron": "^41.5.0",
     "electron-builder": "^26.8.1"
   },
   "build": {
