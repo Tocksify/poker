@@ -1,78 +1,77 @@
-# Poker — Windows Desktop App (fully self-contained)
+# Poker — Windows Desktop App
 
-A native Windows installer that runs **everything locally** — the game server, SQLite
+A native Windows installer that runs everything locally — the game server, SQLite
 database, and React frontend are all bundled inside the `.exe`. No internet required
-for single-player. Multiplayer works over your local network (LAN or same Wi-Fi).
+for single-player. Multiplayer works over your local network (LAN / same Wi-Fi).
 
-The database uses Node.js's **built-in SQLite** (`node:sqlite`) — no native compilation
-or Visual Studio Build Tools required. Just install Node.js and you're good.
-
----
-
-## How multiplayer works
-
-- Each player installs and runs the `.exe` on their own PC.
-- **One player is the "host"** — their machine runs the game server.
-- In the app, go to **Online Play**. The host sees their LAN IP displayed (e.g. `192.168.1.5:7890`).
-- Friends open the app, go to **Online Play**, paste the host's IP, and click **Connect**.
-- Everyone creates an account on the host's server and plays in the host's rooms.
-- No port forwarding needed for same Wi-Fi. For cross-network play, the host can
-  port-forward TCP 7890 and share their public IP instead.
+The server uses Node.js's **built-in SQLite** (`node:sqlite`, available in Node 22+) —
+no Visual Studio, no C++ build tools, no native compilation needed.
 
 ---
 
-## Requirements (one-time)
+## Requirements (one-time, build machine only)
 
-- **Node.js LTS (v22 or newer)** — https://nodejs.org
-  *(v22 is required for the built-in SQLite module. v24 also works.)*
+- **Node.js 22 or newer** — https://nodejs.org
+  *(Your friends who just run the installer don't need Node.js at all.)*
 
-That's it. No C++ build tools, no Visual Studio, no extra setup.
+Check your version: `node --version` — it should print `v22.x.x` or higher.
+Node.js 24.x works too.
 
 ---
 
-## Building the installer
+## Build the installer
 
-Open **Command Prompt** or **PowerShell** in this folder:
+Open **Command Prompt** or **PowerShell** in this folder and run:
 
 ```
 npm install
 npm run build
 ```
 
-Output: `dist\Poker Setup 1.0.0.exe`
+The finished installer will be at:
 
-> First run downloads Electron (~90 MB). Subsequent builds are fast.
+```
+dist\Poker Setup 1.0.0.exe
+```
 
----
-
-## Distributing to friends
-
-Send them `dist\Poker Setup 1.0.0.exe`. They just run the installer — no Node.js or
-other tools needed on their end. The app shows up as **Poker** in Start Menu and Desktop.
+> The first run downloads Electron (~90 MB). Subsequent builds are fast.
 
 ---
 
-## Testing without building an installer
+## Distribute to friends
+
+Send them `dist\Poker Setup 1.0.0.exe`. They double-click it and play.
+No Node.js, no extra software needed on their end.
+
+---
+
+## Multiplayer (LAN)
+
+- One player is the **host** — they run the app and share their IP.
+- In the app, go to **Online Play**. The host's LAN IP is shown automatically.
+- Friends open the app → **Online Play** → paste the host's IP → **Connect**.
+- Accounts are stored locally on the host's machine.
+
+---
+
+## Test without building an installer
 
 ```
 npm install
-npm run build:server   # bundles the server only (fast)
-npm start              # launches Electron directly
+npm start
 ```
+
+This opens the Electron window directly without packaging an `.exe`.
 
 ---
 
-## Data storage
+## Where data is stored
 
-Each player's accounts, bank balance, and cosmetics are stored in a SQLite file at:
+Player accounts, bank balance, and cosmetics are in a SQLite file at:
 
 ```
 %APPDATA%\poker-desktop\poker.db
 ```
-
-Accounts are local to whichever server you're connected to. If you play on your own
-machine, your account is in your local DB. If you connect to a friend's server, your
-account lives in their DB.
 
 ---
 
@@ -80,8 +79,8 @@ account lives in their DB.
 
 | Problem | Fix |
 |---|---|
-| `npm install` fails | Make sure you have Node.js v22 or newer (`node --version`) |
-| "Port 7890 already in use" | Close any other Poker instance, or check Task Manager |
-| Friends can't connect | Make sure you're on the same Wi-Fi, or port-forward TCP 7890 |
-| Blank window | Wait a few seconds — the server is still starting |
-| Build fails | Make sure you're running the command inside the `poker-desktop` folder |
+| `npm install` fails | Make sure you have Node.js v22 or newer — `node --version` |
+| "Port 7890 in use" | Close other Poker instances; check Task Manager for stray processes |
+| Friends can't connect | Make sure you're on the same Wi-Fi network |
+| Blank window on launch | Wait 5–10 seconds — the local server is starting |
+| Build fails with "cannot find icon" | The `assets/icon.ico` file is missing; re-extract the archive |

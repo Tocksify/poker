@@ -6,9 +6,8 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "build": "node build.mjs && electron-builder --win --x64",
-    "build:dir": "node build.mjs && electron-builder --win --x64 --dir",
-    "build:server": "node build.mjs"
+    "build": "electron-builder --win --x64",
+    "build:dir": "electron-builder --win --x64 --dir"
   },
   "build": {
     "appId": "com.poker.desktop",
@@ -18,7 +17,11 @@
     },
     "files": [
       "src/**/*",
-      "assets/**/*"
+      "assets/**/*",
+      "node_modules/cors/**/*",
+      "node_modules/express/**/*",
+      "node_modules/ws/**/*",
+      "node_modules/electron-squirrel-startup/**/*"
     ],
     "extraResources": [
       {
@@ -55,7 +58,6 @@
     "@types/express": "^5.0.6",
     "@types/node": "^22.0.0",
     "@types/ws": "^8.18.1",
-    "esbuild": "^0.25.0",
     "electron": "^35.0.0",
     "electron-builder": "^24.0.0",
     "typescript": "^5.8.0"
