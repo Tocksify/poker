@@ -52,5 +52,6 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
+- For Render installs, use `pnpm install --filter @workspace/api-server...` (avoid `--frozen-lockfile` on pnpm 10)
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
