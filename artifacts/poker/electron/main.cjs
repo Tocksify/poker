@@ -1,7 +1,7 @@
 const { app, BrowserWindow } = require("electron");
 const path = require("path");
 
-const START_URL = process.env.POKER_START_URL || "https://poker-n63h.onrender.com";
+const START_URL = process.env.POKER_START_URL;
 
 let win;
 
@@ -21,7 +21,11 @@ function createWindow() {
   });
 
   win.removeMenu();
-  win.loadURL(START_URL);
+  if (START_URL) {
+    win.loadURL(START_URL);
+    return;
+  }
+  win.loadFile(path.join(__dirname, "renderer", "index.html"));
 }
 
 app.whenReady().then(createWindow);
