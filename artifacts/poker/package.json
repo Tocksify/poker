@@ -8,7 +8,6 @@
     "build": "vite build --config vite.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build:exe": "cd electron && electron-builder --win --x64"
   },
   "devDependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -55,8 +54,6 @@
     "cmdk": "^1.1.1",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.6.0",
-    "electron": "^41.5.0",
-    "electron-builder": "^26.8.1",
     "framer-motion": "catalog:",
     "input-otp": "^1.4.2",
     "lucide-react": "catalog:",
