@@ -12,11 +12,18 @@ if (require("electron-squirrel-startup")) {
   app.quit();
 }
 
+function getFrontendDir() {
+  if (process.resourcesPath) {
+    return path.join(process.resourcesPath, "frontend");
+  }
+  return path.join(__dirname, "..", "resources", "frontend");
+}
+
 function startServer() {
   return new Promise((resolve, reject) => {
     const serverBundle = path.join(__dirname, "server-bundle.cjs");
     const sqlitePath = path.join(app.getPath("userData"), "poker.db");
-    const staticDir = path.join(process.resourcesPath || __dirname, "frontend");
+    const staticDir = getFrontendDir();
 
     serverProcess = spawn(process.execPath, [serverBundle], {
       env: {
@@ -159,10 +166,12 @@ async function createWindow(port) {
     console.error("[main] Failed to connect to server:", err.message);
     mainWindow.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
       <!DOCTYPE html>
-      <html><body style="font-family:Microsoft Sans Serif,Tahoma,sans-serif;background:#0d3319;color:#e8d5a0;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px;">
+      <html>
+      <body style="font-family:Microsoft Sans Serif,Tahoma,sans-serif;background:#0d3319;color:#e8d5a0;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px;">
         <h2>Failed to start server</h2>
         <p>Please close the app and reopen it.</p>
-      </body></html>
+      </body>
+      </html>
     `)}`);
   }
 }

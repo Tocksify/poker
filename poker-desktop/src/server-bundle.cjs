@@ -33467,12 +33467,8 @@ app.use((0, import_cors.default)());
 app.use(import_express2.default.json());
 app.use(import_express2.default.urlencoded({ extended: true }));
 var actualPort = BASE_PORT;
-app.get("/api/healthz", (_req, res) => {
-  res.json({ ok: true });
-});
-app.get("/api/local-info", (_req, res) => {
-  res.json({ ip: getLocalIP(), port: actualPort });
-});
+app.get("/api/healthz", (_req, res) => res.json({ ok: true }));
+app.get("/api/local-info", (_req, res) => res.json({ ip: getLocalIP(), port: actualPort }));
 app.use("/api", auth_default);
 if (STATIC_DIR) {
   app.use(import_express2.default.static(STATIC_DIR));
@@ -33483,6 +33479,7 @@ if (STATIC_DIR) {
 var server = (0, import_node_http.createServer)(app);
 attachWsServer(server);
 var currentPort = BASE_PORT;
+var retryCount = 0;
 function tryListen(port) {
   currentPort = port;
   server.listen(port, "0.0.0.0");
@@ -33496,17 +33493,16 @@ server.on("listening", () => {
 `);
 });
 server.on("error", (err) => {
-  if (err.code === "EADDRINUSE") {
+  if (err.code === "EADDRINUSE" && retryCount < PORT_RANGE - 1) {
     const next = currentPort + 1;
-    if (next < BASE_PORT + PORT_RANGE) {
-      console.warn(`[poker-desktop] Port ${currentPort} busy, trying ${next}...`);
-      server.close(() => tryListen(next));
-    } else {
-      console.error(
-        `[poker-desktop] No free port found in range ${BASE_PORT}\u2013${BASE_PORT + PORT_RANGE - 1}`
-      );
-      process.exit(1);
-    }
+    retryCount += 1;
+    console.warn(`[poker-desktop] Port ${currentPort} busy, trying ${next}...`);
+    setImmediate(() => tryListen(next));
+    return;
+  }
+  if (err.code === "EADDRINUSE") {
+    console.error(`[poker-desktop] No free port found in range ${BASE_PORT}-${BASE_PORT + PORT_RANGE - 1}`);
+    process.exit(1);
     return;
   }
   console.error("[poker-desktop] Server error:", err);

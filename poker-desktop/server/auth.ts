@@ -165,7 +165,7 @@ router.post("/auth/signup", (req, res) => {
     ).run(trimmed, hashPassword(password as string));
     const result = db
       .prepare("SELECT * FROM accounts WHERE username = ?")
-      .get(trimmed) as RawAccount;
+      .get(trimmed) as unknown as RawAccount;
     const token = newToken();
     db.prepare("INSERT INTO sessions (token, account_id) VALUES (?, ?)").run(
       token,
@@ -259,11 +259,11 @@ router.post("/auth/profile", requireAuth, (req, res) => {
       return;
     }
 
-    params.push(account.id);
+    params.push(account.id as number);
     db.prepare(`UPDATE accounts SET ${updates.join(", ")} WHERE id = ?`).run(...params);
     const updated = db
       .prepare("SELECT * FROM accounts WHERE id = ?")
-      .get(account.id) as RawAccount;
+      .get(account.id) as unknown as RawAccount;
     res.json({ profile: publicProfile(parseAccount(updated)) });
   } catch (e) {
     console.error("profile update failed", e);
