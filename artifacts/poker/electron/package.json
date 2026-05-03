@@ -2,6 +2,7 @@
   "name": "poker-electron",
   "version": "1.0.0",
   "description": "Poker desktop wrapper for the hosted web app",
+  "author": "Poker",
   "private": true,
   "main": "main.cjs",
   "scripts": {
@@ -17,6 +18,7 @@
   "build": {
     "appId": "com.poker.desktop",
     "productName": "Poker",
+    "electronVersion": "41.5.0",
     "directories": {
       "output": "dist"
     },
