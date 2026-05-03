@@ -4,6 +4,7 @@
 
 const TOKEN_KEY = "poker-account-token-v1";
 const PROFILE_CACHE_KEY = "poker-account-profile-v1";
+const API_BASE_URL = (import.meta as { env: { VITE_API_BASE_URL?: string } }).env.VITE_API_BASE_URL ?? "";
 
 export interface AccountProfile {
   username: string;
@@ -17,7 +18,7 @@ let profile: AccountProfile | null = null;
 const listeners = new Set<() => void>();
 
 function api(path: string): string {
-  // The api-server is mounted under /api by the platform path-router.
+  if (API_BASE_URL) return `${API_BASE_URL.replace(/\/$/, "")}/api${path}`;
   return `/api${path}`;
 }
 

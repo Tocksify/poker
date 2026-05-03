@@ -10,7 +10,6 @@ interface Props {
   account: AccountProfile | null;
 }
 
-// Detect if running inside the Electron desktop app
 const isDesktop =
   typeof window !== "undefined" &&
   !!(window as unknown as { electronAPI?: { isDesktop?: boolean } }).electronAPI
@@ -19,6 +18,14 @@ const isDesktop =
 interface LocalInfo {
   ip: string;
   port: number;
+}
+
+const API_BASE_URL =
+  (import.meta as { env: { VITE_API_BASE_URL?: string } }).env.VITE_API_BASE_URL ?? "";
+
+function api(path: string): string {
+  if (API_BASE_URL) return `${API_BASE_URL.replace(/\/$/, "")}/api${path}`;
+  return `/api${path}`;
 }
 
 export function OnlineHome({ onNavigate, bank, account }: Props) {
@@ -33,10 +40,9 @@ export function OnlineHome({ onNavigate, bank, account }: Props) {
     else if (ws.game) onNavigate("online-game");
   }, [ws.lobby, ws.game, onNavigate, account]);
 
-  // Fetch local IP from the desktop server
   useEffect(() => {
     if (!isDesktop) return;
-    fetch("/api/local-info")
+    fetch(api("/local-info"))
       .then((r) => r.json())
       .then((d: LocalInfo) => setLocalInfo(d))
       .catch(() => {});
@@ -45,15 +51,14 @@ export function OnlineHome({ onNavigate, bank, account }: Props) {
   function handleJoin() {
     const raw = joinIP.trim();
     if (!raw) return;
-    // Accept "192.168.1.5" or "192.168.1.5:7890"
     const url = raw.includes(":") ? `http://${raw}` : `http://${raw}:7890`;
-    const api = (
+    const apiObj = (
       window as unknown as {
         electronAPI?: { navigateTo?: (u: string) => void };
       }
     ).electronAPI;
-    if (api?.navigateTo) {
-      api.navigateTo(url);
+    if (apiObj?.navigateTo) {
+      apiObj.navigateTo(url);
     } else {
       window.location.href = url;
     }
@@ -81,7 +86,7 @@ export function OnlineHome({ onNavigate, bank, account }: Props) {
             Go to Settings
           </button>
           <div style={{ marginTop: 10 }}>
-            <button className="btn" onClick={() => onNavigate("menu")}>
+            <button className="btn" onClick={() => onNavigate("menu") }>
               Back
             </button>
           </div>
@@ -100,8 +105,6 @@ export function OnlineHome({ onNavigate, bank, account }: Props) {
       onClose={() => onNavigate("menu")}
     >
       <div style={{ textAlign: "center", padding: "12px 0" }}>
-
-        {/* Desktop host info banner */}
         {isDesktop && localInfo && (
           <div
             style={{
@@ -117,9 +120,7 @@ export function OnlineHome({ onNavigate, bank, account }: Props) {
             <div style={{ marginBottom: 4, fontWeight: "bold", color: "var(--gold)" }}>
               You are hosting on this machine
             </div>
-            <div className="muted">
-              Friends on the same network can join at:
-            </div>
+            <div className="muted">Friends on the same network can join at:</div>
             <div
               style={{
                 fontFamily: "'Lucida Console', monospace",
@@ -136,7 +137,6 @@ export function OnlineHome({ onNavigate, bank, account }: Props) {
           </div>
         )}
 
-        {/* Standard room buttons */}
         <div style={{ marginBottom: 16, fontSize: 14 }}>
           Play with friends or family. Create a room to host a table, or join
           one with an invite code.
@@ -166,7 +166,6 @@ export function OnlineHome({ onNavigate, bank, account }: Props) {
           </button>
         </div>
 
-        {/* Desktop: join a friend's server by IP */}
         {isDesktop && (
           <div
             style={{

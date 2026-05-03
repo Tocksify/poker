@@ -51,6 +51,15 @@ function makeStore(): PokerStore {
 }
 
 function getWsUrl(): string {
+  const base = (import.meta as { env: { VITE_API_BASE_URL?: string } }).env.VITE_API_BASE_URL ?? "";
+  if (base) {
+    const url = new URL(base);
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+    url.pathname = "/api/ws";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  }
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${proto}//${window.location.host}/api/ws`;
 }
@@ -117,7 +126,6 @@ function handleServerMsg(msg: ServerMsg) {
       state = { ...state, game: msg.payload };
       break;
     case "left":
-      // Refund any chips returned to our local bank
       if (msg.payload.refundChips > 0) {
         depositToBank(msg.payload.refundChips);
       }
