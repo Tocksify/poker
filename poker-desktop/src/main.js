@@ -19,10 +19,18 @@ function getFrontendIndex() {
   return path.join(__dirname, "..", "resources", "frontend", "index.html");
 }
 
+function getFrontendBaseUrl() {
+  if (process.resourcesPath) {
+    return `file://${path.join(process.resourcesPath, "frontend")}/`;
+  }
+  return `file://${path.join(__dirname, "..", "resources", "frontend")}/`;
+}
+
 function startServer() {
   return new Promise((resolve, reject) => {
     const serverBundle = path.join(__dirname, "server-bundle.cjs");
     const sqlitePath = path.join(app.getPath("userData"), "poker.db");
+    const staticDir = "";
 
     serverProcess = spawn(process.execPath, [serverBundle], {
       env: {
@@ -30,7 +38,7 @@ function startServer() {
         ELECTRON_RUN_AS_NODE: "1",
         PORT: String(PREFERRED_PORT),
         SQLITE_DB_PATH: sqlitePath,
-        STATIC_DIR: "",
+        STATIC_DIR: staticDir,
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -164,7 +172,7 @@ async function createWindow(port) {
   } catch (err) {
     console.error("[main] Failed to connect to server:", err.message);
     try {
-      await mainWindow.loadFile(getFrontendIndex());
+      await mainWindow.loadURL(getFrontendBaseUrl());
     } catch (fileErr) {
       console.error("[main] Failed to load local frontend:", fileErr.message);
       mainWindow.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`

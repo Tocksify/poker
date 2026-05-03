@@ -39,7 +39,10 @@ app.use("/api", authRouter);
 
 if (STATIC_DIR) {
   app.use(express.static(STATIC_DIR));
-  app.get("*", (_req, res) => {
+  app.get("/", (_req, res) => {
+    res.sendFile(path.join(STATIC_DIR, "index.html"));
+  });
+  app.get(/^(?!\/api).*/, (_req, res) => {
     res.sendFile(path.join(STATIC_DIR, "index.html"));
   });
 }
