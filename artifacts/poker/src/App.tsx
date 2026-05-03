@@ -19,9 +19,11 @@ import {
 } from "@/lib/account";
 
 export type Screen =
+  | "loading"
   | "menu"
   | "setup"
   | "online"
+  | "online-connecting"
   | "online-create"
   | "online-join"
   | "online-lobby"
@@ -64,7 +66,7 @@ function loadSettings(): Settings {
 }
 
 function App() {
-  const [screen, setScreen] = useState<Screen>("menu");
+  const [screen, setScreen] = useState<Screen>("loading");
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
   const [setup, setSetup] = useState<GameSetup | null>(null);
   const [bank, setBank] = useState<number>(() => getBank());
@@ -81,6 +83,11 @@ function App() {
     // made on other devices and cleans up invalid tokens).
     void refreshProfile();
     return unsub;
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setScreen("menu"), 800);
+    return () => clearTimeout(timer);
   }, []);
 
   const effectiveName =
@@ -100,6 +107,20 @@ function App() {
 
   return (
     <div className="app-root">
+      {screen === "loading" && (
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100vh",
+          width: "100vw",
+          fontSize: 64,
+          fontWeight: "bold",
+          letterSpacing: 3,
+        }}>
+          POKER
+        </div>
+      )}
       {screen === "menu" && (
         <MainMenu
           onNavigate={setScreen}
@@ -121,6 +142,23 @@ function App() {
           bank={bank}
           account={account}
         />
+      )}
+      {screen === "online-connecting" && (
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100vh",
+          width: "100vw",
+          fontSize: 48,
+          fontWeight: "bold",
+          letterSpacing: 2,
+          flexDirection: "column",
+          gap: 20,
+        }}>
+          <div>POKER</div>
+          <div style={{ fontSize: 24, color: "var(--gold)" }}>Connecting...</div>
+        </div>
       )}
       {screen === "online-create" && (
         <CreateRoom

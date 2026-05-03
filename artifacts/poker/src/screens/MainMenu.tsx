@@ -54,7 +54,10 @@ export function MainMenu({ onNavigate, playerName, bank, account }: Props) {
         <button
           className="btn btn-big"
           disabled={!canPlayOnline}
-          onClick={() => onNavigate("online")}
+          onClick={() => {
+            onNavigate("online-connecting");
+            setTimeout(() => onNavigate("online"), 600);
+          }}
           title={onlineHint}
         >
           Online
