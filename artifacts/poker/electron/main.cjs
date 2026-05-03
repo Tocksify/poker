@@ -21,11 +21,12 @@ function createWindow() {
   });
 
   win.removeMenu();
+  const localIndex = path.join(__dirname, "renderer", "index.html");
   if (START_URL) {
-    win.loadURL(START_URL);
+    win.loadURL(START_URL).catch(() => win.loadFile(localIndex));
     return;
   }
-  win.loadFile(path.join(__dirname, "renderer", "index.html"));
+  win.loadFile(localIndex);
 }
 
 app.whenReady().then(createWindow);
